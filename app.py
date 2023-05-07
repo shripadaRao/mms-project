@@ -3,41 +3,55 @@ from PIL import Image
 from keras.models import load_model
 import numpy as np
 import time
+import os
+import tensorflow as tf
 
-ML_MODEL_PATH = "dataset/cnn_model_v1.h5"
+ML_MODEL_PATH = "cnn_model_v2.tflite"
 
-def pre_process_img(source_filepath):
-  start = time.time()
+prediction_classes = {0:'ambient',1:'sawing'}
 
-  left, upper, right, lower = 80, 60, 475, 425
-  with Image.open(source_filepath) as img:
-      cropped_img = img.crop((left, upper, right, lower))  
-  grey_img = cropped_img.convert('L')
-  grey_img = grey_img.point(lambda p: 255 if p > 165 else p)
-  grey_img = grey_img.point(lambda p: 110 if p < 130  else p)
+def pre_process_img_v3(source_filepath):
+    left, upper, right, lower = 170, 200, 350, 380
+    with Image.open(source_filepath) as img:
+        cropped_img = img.crop((left, upper, right, lower))
 
-  print('pre-processing time: ', time.time() - start)
-  return np.asarray(grey_img)
+    grey_img = cropped_img.convert('L')
+    
+    grey_img = grey_img.point(lambda p: 255 if p > 165 else p)
+    grey_img = grey_img.point(lambda p: 110 if p < 130 else p)
 
-def predict_spectrogram(filepath, model):
+    np_img = np.asarray(grey_img)
+    return np_img
 
-#   model = load_model(ML_MODEL_PATH)
-  
-  img_data = pre_process_img(filepath)
-  x = img_data / 255.
-  x = np.expand_dims(x, axis=0)
-  preds = model.predict(x)
-  return True if preds.argmax()==1 else False
+def predict_with_tflite(image_path, model_path):
+    image = pre_process_img_v3(image_path,)
+    image = image / 255.0
+    image = np.expand_dims(image, axis=0)
+    image = np.expand_dims(image, axis=-1)
+    image = image.astype(np.float32)
 
-while(True):
-   model = load_model(ML_MODEL_PATH)
+    # Load the model
+    interpreter = tf.lite.Interpreter(model_path=model_path)
+    interpreter.allocate_tensors()
 
-   in_dir1 = "dataset/spectrograms/ambient/"
-   in_dir2 = "dataset/spectrograms/sawing/"
+    # Get the input and output tensors
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
 
-   in_file = str(input('enter file name: '))
+    # Make the prediction
+    interpreter.set_tensor(input_details[0]['index'], image)
+    interpreter.invoke()
+    prediction = interpreter.get_tensor(output_details[0]['index'])
 
-   start = time.time()
-   res = predict_spectrogram(in_dir1 + in_file, model)
-   print(res)
-   print('prediction time: ', time.time() - start)
+    # Return the prediction
+    prediction_accuracy = max(prediction[0])
+    class_name = prediction_classes[np.argmax(prediction)]
+
+    return [class_name, prediction_accuracy]
+
+
+start = time.time()
+class_name, acc = predict_with_tflite('dataset/spectrograms/sawing/file7008.png', 'cnn_model_v2.tflite')
+print(class_name, acc)
+
+print('prediction time: ', time.time() - start)
