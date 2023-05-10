@@ -119,7 +119,7 @@ app = Flask(__name__)
 def greet():
     return "hello world!"
 
-@app.route('/predict-audio-data/', methods = ['POST'])
+@app.route('/classify-audio-data/', methods = ['POST'])
 def classify_audio_data():
     audio_data_json = request.get_json()
     audio_data = np.array(audio_data_json['audio_data'])
