@@ -3,17 +3,25 @@ from PIL import Image
 import numpy as np
 import tensorflow as tf
 import librosa
-import matplotlib.pyplot as plt
-import librosa.display
+
+# import librosa.display
 import io
+
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+plt.switch_backend('Agg')
+
+from flask import Flask, request
+
 
 ML_MODEL_PATH = "cnn_model_v2.tflite"
 
 prediction_classes = {0:'ambient',1:'sawing'}
 
 """generate 10second spectrogram. slide through 6 iterations of 180 pixels along x axis"""
-def generate_spectrogram_img_memory(audio_data, sr): 
-    # y, sr = librosa.load(audio_file, sr=20400)
+def generate_spectrogram_img_memory(audio_data, sr):
     y = audio_data
     D = np.abs(librosa.stft(y))**2
     S = librosa.feature.melspectrogram(S=D, sr=sr)
@@ -21,8 +29,8 @@ def generate_spectrogram_img_memory(audio_data, sr):
     fig, ax = plt.subplots(figsize=(14.5, 6))
     S_dB = librosa.power_to_db(S, ref=np.max)
     img = librosa.display.specshow(S_dB, x_axis='time',
-                            y_axis='mel', sr=sr,
-                            fmax=6000, ax=ax)
+                                   y_axis='mel', sr=sr,
+                                   fmax=6000, ax=ax)
 
     fig.colorbar(img, ax=ax, format='%+2.0f dB')
     plt.close(fig)
@@ -77,6 +85,10 @@ def predict_with_tflite_data(image_data, model_path):
     return [class_name, prediction_accuracy]
 
 def predict_audio_data(audio_data, sr=20400):
+    # print(len(audio_data))
+    # audio_data_string = [i  for i in audio_data]
+    # with open('rand.txt', 'w') as f:
+    #     f.write(str(audio_data_string))
     spectrogram_img_data = generate_spectrogram_img_memory(audio_data, sr)
     x = 0
     pred_dic = {}
@@ -92,11 +104,26 @@ def predict_audio_data(audio_data, sr=20400):
     return pred_dic
 
 
-if __name__ == "__main__":
-    audio_data,sr = librosa.load('test/10s_ambient.wav', sr=20400)
-    audio_data_pred = predict_audio_data(audio_data,sr)
-    # if 'sawing' not in wav_file_prediction:
-    #     print('no sawing')
-    # else:
-    #     print('sawing')    
-    print(audio_data_pred)
+# if __name__ == "__main__":
+#     audio_data,sr = librosa.load('test/10s_ambient.wav', sr=20400)
+#     audio_data_pred = predict_audio_data(audio_data,sr)
+#     # if 'sawing' not in wav_file_prediction:
+#     #     print('no sawing')
+#     # else:
+#     #     print('sawing')    
+#     print(audio_data_pred)
+
+app = Flask(__name__)
+
+@app.route('/')
+def greet():
+    return "hello world!"
+
+@app.route('/predict-audio-data/', methods = ['POST'])
+def classify_audio_data():
+    audio_data_json = request.get_json()
+    audio_data = np.array(audio_data_json['audio_data'])
+    return predict_audio_data(audio_data,sr=20400)
+
+if __name__ == '__main__':
+    app.run(debug=True)
