@@ -104,15 +104,6 @@ def predict_audio_data(audio_data, sr=20400):
     return pred_dic
 
 
-# if __name__ == "__main__":
-#     audio_data,sr = librosa.load('test/10s_ambient.wav', sr=20400)
-#     audio_data_pred = predict_audio_data(audio_data,sr)
-#     # if 'sawing' not in wav_file_prediction:
-#     #     print('no sawing')
-#     # else:
-#     #     print('sawing')    
-#     print(audio_data_pred)
-
 app = Flask(__name__)
 
 @app.route('/')
