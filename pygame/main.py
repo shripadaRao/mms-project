@@ -146,6 +146,12 @@ def find_coord_dist(coord1, coord2):
 def generate_tree_coord():
     return [random.randint(0,WINDOW_SIZE[0]), random.randint(0,WINDOW_SIZE[1])]
 
+def generate_tree_coords(no_of_trees):
+    rand_tree_coords = []
+    for i in range(no_of_trees):
+        rand_tree_coords.append(generate_tree_coord())
+    return rand_tree_coords
+
 def handle_tree_generation(num_of_trees):
     safe_dist = 200 * (200 ** 0.5)
     rand_tree_coords = []
@@ -163,7 +169,8 @@ def handle_tree_generation(num_of_trees):
     
     return rand_tree_coords
 
-rand_tree_coords = handle_tree_generation(num_of_trees)
+# rand_tree_coords = handle_tree_generation(num_of_trees)
+rand_tree_coords = generate_tree_coords(num_of_trees)
 
 #handle conflict while generation of trees
 # def handle_tree_generation(rand_tree_coords):
@@ -217,7 +224,7 @@ while running:
 
                 #for trees randomly generate some coordinate in range of WINDOW_SIZE
                 rand_tree_coords = [[random.randint(0,WINDOW_SIZE[0]), random.randint(0,WINDOW_SIZE[1])] for i in range(num_of_trees)]
-                rand_tree_coords = handle_tree_generation(rand_tree_coords)
+                # rand_tree_coords = handle_tree_generation(rand_tree_coords)
                 pygame.display.flip()
 
     screen.blit(background, (0,0))
