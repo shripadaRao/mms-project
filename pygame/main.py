@@ -2,12 +2,11 @@
 
 import pygame
 import random
+import math
 
 
 # WINDOW_SIZE = [1350, 850]
-# WINDOW_SIZE = [1600, 800]
-# WINDOW_SIZE = [1500,1000]
-WINDOW_SIZE = [1700, 1000]
+WINDOW_SIZE = [1600, 1200] #give multiple of 400 
 
 # AUDIO_SOURCE_VARIATION = [60,60] #width, height
 # DEVICE_COORD_VARIATION = [60,60] #width, height
@@ -55,22 +54,37 @@ devices_coords = generate_device_coords()
 
 def find_coords_dist(coord1, coord2):
     """ just root mean square distance """
-    #coord1 = [120,100] coord2 = [130,150]
-    dist = []
-    for i in range(len(coord1)):
-        ele_dist = (coord2[i]**2 - coord1[i]**2)**0.5
-        dist.append(ele_dist)
-    dist = sum(dist)
+
+    # dist = ((coord1[0]**2 - coord2[0]**2 ) + (coord1[1]**2 - coord2[1]**2))**0.5
+    dist = math.dist(coord1, coord2)
     return dist
 
 # print(find_coords_dist([120,100],[130,150]))
 
-# def vary_audio_with_distance(audio_data, distance):
-#     pass
+# def sigmoid_func(dist):
+#     """ takes in distance as parameter and outputs a number bw 0 and 1. and output is inversely proportianal to input(distance) """
+#     output = 1 - dist**1.5/1000
+#     # output = 1/dist
+#     print(output)
+#     return output
+# sigmoid_func(100)
 
-# def generate_audio_data_for_dist(source_audio, distance):
-#     """ generate varying intensity of audio data for different distances """
-#     pass
+# def calculate_intensity(distance, initial_intensity):
+#     # Ensure the distance is greater than zero
+#     distance = max(distance, 0.0)
+    
+#     # Calculate the intensity using the inverse square law
+#     intensity = initial_intensity / (distance ** 2)
+#     print(intensity)
+#     return intensity
+# calculate_intensity(10, 1)
+
+def vary_audio_with_distance(audio_data, distance):
+    pass
+
+def generate_audio_data_for_dist(source_audio, distance):
+    """ generate varying intensity of audio data for different distances """
+    pass
 
 
 class AudioSource:
@@ -108,10 +122,26 @@ class SensorDevice:
 
 
 
+
 #***********************************    PYGAME  *************************#
+
+
 pygame.init()
 screen = pygame.display.set_mode(WINDOW_SIZE)
-# WINDOW_SIZE = [1350, 850]
+
+#init background
+background = pygame.Surface(WINDOW_SIZE)
+background.fill((0,0,0))
+
+#render background
+tile_image = pygame.image.load('pygame/assets/grass-sprit.jpg')
+tree_image = pygame.image.load('pygame/assets/tree-sprit.jpg')
+
+num_tiles_x = WINDOW_SIZE[0] // tile_image.get_width() + 1
+num_tiles_y = WINDOW_SIZE[1] // tile_image.get_height() + 1
+
+num_of_trees = 10
+rand_tree_coords = [[random.randint(0,WINDOW_SIZE[0]), random.randint(0,WINDOW_SIZE[1])] for i in range(num_of_trees)]
 
 
 RESET_BUTTON_DIMS = [100,50] 
@@ -125,18 +155,43 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN:
+
+    
+        if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
-            # below is condition for checking whether the user has clicked within the dims of button
+            
+            #below is condition for checking whether the user has clicked within the dims of button
+            #reset button true
             if reset_button_coords[0] <= mouse_pos[0] <= reset_button_coords[0]+RESET_BUTTON_DIMS[0] and reset_button_coords[1] <= mouse_pos[1] <= reset_button_coords[1]+RESET_BUTTON_DIMS[1]:
-                #reset button true
+                
                 audio_source_coords = generate_audio_source_coords()
                 devices_coords = generate_device_coords()
+                # print("audio source coords: ",audio_source_coords)
+                # print('device coords[0]', devices_coords[0])
+
+                # print("distance : ",find_coords_dist(audio_source_coords, devices_coords[0]))
+
+                #for trees randomly generate some coordinate in range of WINDOW_SIZE
+                rand_tree_coords = [[random.randint(0,WINDOW_SIZE[0]), random.randint(0,WINDOW_SIZE[1])] for i in range(num_of_trees)]
 
                 pygame.display.flip()
 
+    screen.blit(background, (0,0))
 
-    screen.fill((255, 255, 255))
+    #render background
+    for y in range(num_tiles_y):
+        for x in range(num_tiles_x):
+            # Calculate the coordinates for each tile
+            tile_x = x * tile_image.get_width()
+            tile_y = y * tile_image.get_height()
+
+            screen.blit(tile_image, (tile_x, tile_y))
+
+    for tree_coord in rand_tree_coords:
+        x,y = tree_coord[0], tree_coord[1]
+        #replace circle with tree sprit
+        pygame.draw.circle(screen, (0,0,0), (x,y), 10)
+
 
     #audio source
     pygame.draw.circle(screen, (0, 0, 200), (audio_source_coords[0], audio_source_coords[1]), 25)
