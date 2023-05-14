@@ -6,7 +6,7 @@ import math
 
 
 # WINDOW_SIZE = [1350, 850]
-WINDOW_SIZE = [1600, 1200] #give multiple of 400 
+WINDOW_SIZE = [1600, 1000] #give multiple of 200 
 
 # AUDIO_SOURCE_VARIATION = [60,60] #width, height
 # DEVICE_COORD_VARIATION = [60,60] #width, height
@@ -118,6 +118,8 @@ class SensorDevice:
 
 #***********************************    PYGAME  *************************#
 
+NUM_OF_TREES = 15
+
 
 pygame.init()
 screen = pygame.display.set_mode(WINDOW_SIZE)
@@ -133,13 +135,11 @@ tree_image = pygame.image.load('pygame/assets/tree-resized-sprit.png')
 num_tiles_x = WINDOW_SIZE[0] // tile_image.get_width() + 1
 num_tiles_y = WINDOW_SIZE[1] // tile_image.get_height() + 1
 
-num_of_trees = 10
+# num_of_trees = 10
 # rand_tree_coords = [[random.randint(0,WINDOW_SIZE[0]), random.randint(0,WINDOW_SIZE[1])] for i in range(num_of_trees)]
 
 def find_coord_dist(coord1, coord2):
-    """ just root mean square distance """
-
-    # dist = ((coord1[0]**2 - coord2[0]**2 ) + (coord1[1]**2 - coord2[1]**2))**0.5
+    # just root mean square distance 
     dist = math.dist(coord1, coord2)
     return dist
 
@@ -153,13 +153,13 @@ def generate_tree_coords(no_of_trees):
     return rand_tree_coords
 
 def handle_tree_generation(num_of_trees):
-    safe_dist = 200 * (200 ** 0.5)
+    safe_dist = 200 * (2**0.5)
     rand_tree_coords = []
 
     for i in range(num_of_trees):
         rand_tree_coord = generate_tree_coord()
         count = 0
-        while count < len(rand_tree_coords)-1:
+        while count < len(rand_tree_coords):
             if find_coord_dist(rand_tree_coords[count], rand_tree_coord) < safe_dist:
                 rand_tree_coord = generate_tree_coord()
                 count = 0  # Reset the count if collision occurs
@@ -169,29 +169,7 @@ def handle_tree_generation(num_of_trees):
     
     return rand_tree_coords
 
-# rand_tree_coords = handle_tree_generation(num_of_trees)
-rand_tree_coords = generate_tree_coords(num_of_trees)
-
-#handle conflict while generation of trees
-# def handle_tree_generation(rand_tree_coords):
-#     for i in range(len(rand_tree_coords)-1):
-#         for j in range(i,len(rand_tree_coords)-1):
-#             if find_coord_dist(rand_tree_coords[i], rand_tree_coords[j]) < 200:
-#               rand_tree_coords[j][0], rand_tree_coords[j][1] = rand_tree_coords[j][0] + 200, rand_tree_coords[j][1] + 200
-#     return rand_tree_coords
-
-# def handle_tree_collisions(rand_tree_coords):
-#     safe_dist = 200*(200**0.5)
-
-#     def is_safe_coords(coord1, coord2):
-#         if find_coord_dist(coord1, coord2) > safe_dist:
-#             return True
-#         else:
-#             return False
-
-#     for i in range(len(rand_tree_coords)):
-
-#     while is_safe_coords() is False:
+rand_tree_coords = handle_tree_generation(NUM_OF_TREES)
 
 
 
@@ -202,29 +180,22 @@ RESET_BUTTON_DIMS= [WINDOW_SIZE[0]/13.5, WINDOW_SIZE[1]/17]
 reset_button_coords = [WINDOW_SIZE[0]/1.174, WINDOW_SIZE[1]/17]
 running = True
 
+
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
     
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
 
-            #below is condition for checking whether the user has clicked within the dims of button
-            #reset button true
             if reset_button_coords[0] <= mouse_pos[0] <= reset_button_coords[0]+RESET_BUTTON_DIMS[0] and reset_button_coords[1] <= mouse_pos[1] <= reset_button_coords[1]+RESET_BUTTON_DIMS[1]:
-                
+                #if reset button is true, run below block
                 audio_source_coords = generate_audio_source_coords()
                 devices_coords = generate_device_coords()
-                # print("audio source coords: ",audio_source_coords)
-                # print('device coords[0]', devices_coords[0])
 
-                # print("distance : ",find_coords_dist(audio_source_coords, devices_coords[0]))
-
-                #for trees randomly generate some coordinate in range of WINDOW_SIZE
-                rand_tree_coords = [[random.randint(0,WINDOW_SIZE[0]), random.randint(0,WINDOW_SIZE[1])] for i in range(num_of_trees)]
-                # rand_tree_coords = handle_tree_generation(rand_tree_coords)
+                rand_tree_coords = handle_tree_generation(NUM_OF_TREES)
                 pygame.display.flip()
 
     screen.blit(background, (0,0))
@@ -240,8 +211,6 @@ while running:
 
     for tree_coord in rand_tree_coords:
         x,y = tree_coord[0], tree_coord[1]
-        #replace circle with tree sprit
-        # pygame.draw.circle(screen, (0,0,0), (x,y), 10)
         screen.blit(tree_image, (x,y))
 
 
@@ -250,10 +219,10 @@ while running:
 
     #devices
     [bl,tl, tr, br]=devices_coords
-    pygame.draw.circle(screen, (100, 100, 0), (bl[0], bl[1]), 25)
-    pygame.draw.circle(screen, (100, 100, 0), (tl[0], tl[1]), 25)
-    pygame.draw.circle(screen, (100, 100, 0), (tr[0], tr[1]), 25)
-    pygame.draw.circle(screen, (100, 100, 0), (br[0], br[1]), 25)
+    pygame.draw.circle(screen, (250, 0, 0), (bl[0], bl[1]), 25)
+    pygame.draw.circle(screen, (250, 0, 0), (tl[0], tl[1]), 25)
+    pygame.draw.circle(screen, (250, 0, 0), (tr[0], tr[1]), 25)
+    pygame.draw.circle(screen, (250, 0, 0), (br[0], br[1]), 25)
 
     pygame.draw.rect(screen, (255,0,0), (reset_button_coords[0], reset_button_coords[1], RESET_BUTTON_DIMS[0], RESET_BUTTON_DIMS[1]))
     font = pygame.font.Font(None, 36)    
