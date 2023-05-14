@@ -3,9 +3,12 @@
 import pygame
 import random
 import math
+import requests
+import json
+import librosa
+import numpy as np
 
 
-# WINDOW_SIZE = [1350, 850]
 WINDOW_SIZE = [1600, 1000] #give multiple of 200 
 
 # AUDIO_SOURCE_VARIATION = [60,60] #width, height
@@ -14,6 +17,10 @@ WINDOW_SIZE = [1600, 1000] #give multiple of 200
 AUDIO_SOURCE_VARIATION = [WINDOW_SIZE[0]//22.5, WINDOW_SIZE[1]//22.5]
 DEVICE_COORD_VARIATION = [WINDOW_SIZE[0]//22.5, WINDOW_SIZE[1]//22.5]
 
+AUDIO_CLASSIFICATION_URL = 'http://127.0.0.1:5000/classify-audio-data/'
+
+SENSOR_SPRIT_PATH = "pygame/assets/sensor-sprit.png"
+SAWING_SPRIT_PATH = "pygame/assets/saw-resized-sprite.png"
 
 #UTIL functions
 def generate_audio_source_coords(): # returns [width, height]
@@ -52,32 +59,17 @@ def generate_device_coords(devices_number=4):
 devices_coords = generate_device_coords()
 
 
-# print(find_coords_dist([120,100],[130,150]))
+def mult_factor(dist):
+    """ takes in distance as parameter and outputs a number bw 0 and 1. and output is inversely proportianal to input(distance) """
+    MAX_DIST_BW_AUDIO_DEVICE = 670
+    output = 1 - dist/MAX_DIST_BW_AUDIO_DEVICE
 
-# def sigmoid_func(dist):
-#     """ takes in distance as parameter and outputs a number bw 0 and 1. and output is inversely proportianal to input(distance) """
-#     output = 1 - dist**1.5/1000
-#     # output = 1/dist
-#     print(output)
-#     return output
-# sigmoid_func(100)
-
-# def calculate_intensity(distance, initial_intensity):
-#     # Ensure the distance is greater than zero
-#     distance = max(distance, 0.0)
-    
-#     # Calculate the intensity using the inverse square law
-#     intensity = initial_intensity / (distance ** 2)
-#     print(intensity)
-#     return intensity
-# calculate_intensity(10, 1)
-
-def vary_audio_with_distance(audio_data, distance):
-    pass
+    return output
 
 def generate_audio_data_for_dist(source_audio, distance):
     """ generate varying intensity of audio data for different distances """
-    pass
+    source_audio = source_audio * mult_factor(distance)
+    return source_audio
 
 
 class AudioSource:
@@ -88,9 +80,12 @@ class AudioSource:
     def __init__(self, coords) -> None:
         self.coords = coords
         self.isSawing = False
+        self.load_asset()
     
-    def load_asset(self, source_path):
-        pass
+    def load_asset(self, source_path=SAWING_SPRIT_PATH):
+        # pygame.draw.circle(screen, (0, 0, 200), (self.coords[0], self.coords[1]), 25)
+        saw_tile = pygame.image.load(source_path)
+        screen.blit(saw_tile,(self.coords[0], self.coords[1]))
 
 
 
@@ -102,18 +97,30 @@ class SensorDevice:
     def __init__(self, coords) -> None:
         self.coords = coords
         self.isSawing = False   #use pygame.display.update() instead of display.flip()
+        self.load_asset()
 
-    def load_asset(self, source_path): #will also be used to update display
-        pass
+    def load_asset(self, source_path=SENSOR_SPRIT_PATH): 
+        pygame.draw.circle(screen, (0, 0, 250), (self.coords[0], self.coords[1]), 25)
+        # sensor_tile = pygame.image.load(source_path)
+        # screen.blit(sensor_tile,(self.coords[0], self.coords[1]))
 
-    def predict_audio_data(self, audio_data): #handle api interaction here and set flag
-        pass
+    def recieve_audio_data(self, original_audio_data, distance_bw_audio_source_sensor):
+        return generate_audio_data_for_dist(original_audio_data, distance_bw_audio_source_sensor)
     
+    def predict_audio_data(self, recieved_audio_data):
+        # r = requests.get('http://127.0.0.1:5000/')
+        # resp = r.text
+
+        r = requests.post(AUDIO_CLASSIFICATION_URL, data=json.dumps({"audio_data":recieved_audio_data.tolist()}), headers = {"Content-Type": "application/json"})
+        return r.json()
+    
+    def relocate_coords(self, coords):
+        self.coords = coords
 
 
-
-
-
+# sensor = SensorDevice([])
+# y, sr = librosa.load('test/10s_ambient.wav')
+# sensor.predict_audio_data(y)
 
 
 #***********************************    PYGAME  *************************#
@@ -173,14 +180,22 @@ rand_tree_coords = handle_tree_generation(NUM_OF_TREES)
 
 
 
-RESET_BUTTON_DIMS = [100,50] 
-reset_button_coords = [1150, 50]
+# RESET_BUTTON_DIMS = [100,50] 
+# reset_button_coords = [1150, 50]
 
-RESET_BUTTON_DIMS= [WINDOW_SIZE[0]/13.5, WINDOW_SIZE[1]/17]
-reset_button_coords = [WINDOW_SIZE[0]/1.174, WINDOW_SIZE[1]/17]
+RESET_BUTTON_DIMS= [WINDOW_SIZE[0]/13.5, WINDOW_SIZE[1]/20]
+reset_button_coords = [WINDOW_SIZE[0]/1.1799, WINDOW_SIZE[1]/50]
+
+RUN_BUTTON_DIMS = [WINDOW_SIZE[0]/13.5, WINDOW_SIZE[1]/20]
+run_button_coords = [WINDOW_SIZE[0]/1.081, WINDOW_SIZE[1]/50]
+
+
+audio_source = AudioSource(audio_source_coords)
+sensor_list = SensorDevice(devices_coords[0]), SensorDevice(devices_coords[1]), SensorDevice(devices_coords[2]), SensorDevice(devices_coords[3])
+[sensor1, sensor2, sensor3, sensor4] = sensor_list
+
+
 running = True
-
-
 
 while running:
     for event in pygame.event.get():
@@ -196,9 +211,39 @@ while running:
                 devices_coords = generate_device_coords()
 
                 rand_tree_coords = handle_tree_generation(NUM_OF_TREES)
+                sensor1.isSawing = False
+                sensor2.isSawing = False
+                sensor3.isSawing = False
+                sensor4.isSawing = False
                 pygame.display.flip()
 
+
+            if run_button_coords[0] <= mouse_pos[0] <= run_button_coords[0]+RUN_BUTTON_DIMS[0] and run_button_coords[1] <= mouse_pos[1] <= run_button_coords[1]+RUN_BUTTON_DIMS[1]:
+                # print('run clicked!')
+                audio_filepath = 'test/10s_sawing.wav'
+                source_audio_data, sample_rate = librosa.load(audio_filepath)
+
+                recieved_audio_data_all_sensors = []    
+                for idx, sensor in enumerate(sensor_list):
+                    recieved_audio_data =sensor.recieve_audio_data(source_audio_data, find_coord_dist(sensor.coords,audio_source.coords))
+                    recieved_audio_data_all_sensors.append(recieved_audio_data)
+
+                pred = sensor1.predict_audio_data(recieved_audio_data_all_sensors[0])
+                # print('prediction: ', pred)
+                # pred['sawing'] = 1
+
+                if 'sawing' in audio_filepath:
+                    sensor1.isSawing = True
+                    sensor2.isSawing = True
+                    sensor3.isSawing = True
+                    sensor4.isSawing = True
+                    
+                    print('SAWING!')
+                else:
+                    print('no sawing!')
+
     screen.blit(background, (0,0))
+
 
     #render background
     for y in range(num_tiles_y):
@@ -215,20 +260,53 @@ while running:
 
 
     #audio source
-    pygame.draw.circle(screen, (0, 0, 200), (audio_source_coords[0], audio_source_coords[1]), 25)
+    # pygame.draw.circle(screen, (0, 0, 200), (audio_source_coords[0], audio_source_coords[1]), 25)
+    audio_source = AudioSource(audio_source_coords)
+    audio_source.load_asset()
 
-    #devices
-    [bl,tl, tr, br]=devices_coords
-    pygame.draw.circle(screen, (250, 0, 0), (bl[0], bl[1]), 25)
-    pygame.draw.circle(screen, (250, 0, 0), (tl[0], tl[1]), 25)
-    pygame.draw.circle(screen, (250, 0, 0), (tr[0], tr[1]), 25)
-    pygame.draw.circle(screen, (250, 0, 0), (br[0], br[1]), 25)
+    # #devices
+    # [bl,tl, tr, br]=devices_coords
+    # pygame.draw.circle(screen, (250, 0, 0), (bl[0], bl[1]), 25)
+    # pygame.draw.circle(screen, (250, 0, 0), (tl[0], tl[1]), 25)
+    # pygame.draw.circle(screen, (250, 0, 0), (tr[0], tr[1]), 25)
+    # pygame.draw.circle(screen, (250, 0, 0), (br[0], br[1]), 25)
+    # sensor1, sensor2, sensor3, sensor4 = (devices_coords[0]), SensorDevice(devices_coords[1]), SensorDevice(devices_coords[2]), SensorDevice(devices_coords[3])
+    sensor1.relocate_coords(devices_coords[0])
+    sensor2.relocate_coords(devices_coords[1])
+    sensor3.relocate_coords(devices_coords[2])
+    sensor4.relocate_coords(devices_coords[3])
+ 
+    sensor1.load_asset()
+    sensor2.load_asset()
+    sensor3.load_asset()
+    sensor4.load_asset()
+
+
+    if sensor1.isSawing:
+        pygame.draw.circle(screen, (250, 0, 0), (devices_coords[0][0], devices_coords[0][1]), 35, 5)
+
+    if sensor2.isSawing:
+        pygame.draw.circle(screen, (250, 0, 0), (devices_coords[1][0], devices_coords[1][1]), 35, 5)
+
+    if sensor3.isSawing:
+        pygame.draw.circle(screen, (250, 0, 0), (devices_coords[2][0], devices_coords[2][1]), 35, 5)
+
+    if sensor4.isSawing:
+        pygame.draw.circle(screen, (250, 0, 0), (devices_coords[3][0], devices_coords[3][1]), 35, 5)
+
 
     pygame.draw.rect(screen, (255,0,0), (reset_button_coords[0], reset_button_coords[1], RESET_BUTTON_DIMS[0], RESET_BUTTON_DIMS[1]))
     font = pygame.font.Font(None, 36)    
-    text = font.render("Reset", True, (255, 255, 255))
-    text_rect = text.get_rect(center=(reset_button_coords[0] + RESET_BUTTON_DIMS[0] // 2, reset_button_coords[1] + RESET_BUTTON_DIMS[1] // 2))
-    screen.blit(text, text_rect)   
+    reset_text = font.render("Reset", True, (255, 255, 255))
+    text_rect = reset_text.get_rect(center=(reset_button_coords[0] + RESET_BUTTON_DIMS[0] // 2, reset_button_coords[1] + RESET_BUTTON_DIMS[1] // 2))
+    screen.blit(reset_text, text_rect)  
+
+    pygame.draw.rect(screen, (255,0,0), (run_button_coords[0], run_button_coords[1], RUN_BUTTON_DIMS[0], RUN_BUTTON_DIMS[1]))
+    font = pygame.font.Font(None, 36)    
+    run_text = font.render("Run", True, (255, 255, 255))
+    text_rect = reset_text.get_rect(center=(run_button_coords[0] + RUN_BUTTON_DIMS[0] // 2, run_button_coords[1] + RUN_BUTTON_DIMS[1] // 2))
+    screen.blit(run_text, text_rect) 
+
     pygame.display.flip()
 
 pygame.quit()
