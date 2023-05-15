@@ -21,6 +21,7 @@ AUDIO_CLASSIFICATION_URL = 'http://127.0.0.1:5000/classify-audio-data/'
 
 SENSOR_SPRIT_PATH = "pygame/assets/sensor-sprit.png"
 SAWING_SPRIT_PATH = "pygame/assets/saw-resized-sprite.png"
+AMBIENT_SOUND_PATH = 'pygame/assets/Ambient-sound-sprite.png'
 
 #UTIL functions
 def generate_audio_source_coords(): # returns [width, height]
@@ -71,6 +72,11 @@ def generate_audio_data_for_dist(source_audio, distance):
     source_audio = source_audio * mult_factor(distance)
     return source_audio
 
+menu_isAmbient = True
+menu_isSawing = False
+
+get_audio_source_sprite = lambda: AMBIENT_SOUND_PATH if menu_isAmbient else SAWING_SPRIT_PATH
+
 
 class AudioSource:
     """ should be able to run audio continously, combo of both ambient and sawing(min sawing time > 2 sec) 
@@ -82,7 +88,7 @@ class AudioSource:
         self.isSawing = False
         self.load_asset()
     
-    def load_asset(self, source_path=SAWING_SPRIT_PATH):
+    def load_asset(self, source_path=get_audio_source_sprite()):
         # pygame.draw.circle(screen, (0, 0, 200), (self.coords[0], self.coords[1]), 25)
         saw_tile = pygame.image.load(source_path)
         screen.blit(saw_tile,(self.coords[0], self.coords[1]))
@@ -186,14 +192,25 @@ rand_tree_coords = handle_tree_generation(NUM_OF_TREES)
 RESET_BUTTON_DIMS= [WINDOW_SIZE[0]/13.5, WINDOW_SIZE[1]/20]
 reset_button_coords = [WINDOW_SIZE[0]/1.1799, WINDOW_SIZE[1]/50]
 
-RUN_BUTTON_DIMS = [WINDOW_SIZE[0]/13.5, WINDOW_SIZE[1]/20]
+RUN_BUTTON_DIMS = [WINDOW_SIZE[0]/20, WINDOW_SIZE[1]/20]
 run_button_coords = [WINDOW_SIZE[0]/1.081, WINDOW_SIZE[1]/50]
+
+DROP_DOWN_BUTTON_DIMS = [WINDOW_SIZE[0]/60,WINDOW_SIZE[1]/20]
+drop_button_coords = [WINDOW_SIZE[0]/1.020, WINDOW_SIZE[1]/50]
 
 
 audio_source = AudioSource(audio_source_coords)
 sensor_list = SensorDevice(devices_coords[0]), SensorDevice(devices_coords[1]), SensorDevice(devices_coords[2]), SensorDevice(devices_coords[3])
 [sensor1, sensor2, sensor3, sensor4] = sensor_list
 
+menu_isVisible = False
+menu_width, menu_height = 130, 60
+menu_contents = ['sawing', 'ambient']
+
+menu_isAmbient = True
+menu_isSawing = False
+
+radio_button_radius = 7
 
 running = True
 
@@ -232,15 +249,32 @@ while running:
                 # print('prediction: ', pred)
                 # pred['sawing'] = 1
 
-                if 'sawing' in audio_filepath:
+                # if 'sawing' in audio_filepath:
+                #     sensor1.isSawing = True
+                #     sensor2.isSawing = True
+                #     sensor3.isSawing = True
+                #     sensor4.isSawing = True
+                    
+                #     print('SAWING!')
+                # else:
+                #     print('no sawing!')
+                if menu_isSawing:
                     sensor1.isSawing = True
                     sensor2.isSawing = True
                     sensor3.isSawing = True
                     sensor4.isSawing = True
-                    
-                    print('SAWING!')
-                else:
-                    print('no sawing!')
+                                
+            if drop_button_coords[0] <= mouse_pos[0] <= drop_button_coords[0]+DROP_DOWN_BUTTON_DIMS[0] and drop_button_coords[1] <= mouse_pos[1] <= drop_button_coords[1]+DROP_DOWN_BUTTON_DIMS[1]:
+                menu_isVisible = not menu_isVisible
+
+            if menu_isVisible and drop_button_coords[0]-50 + menu_width // 2 -10 <= mouse_pos[0] <= drop_button_coords[0]-50 + menu_width // 2 + radio_button_radius + 10 and drop_button_coords[1]+45+(menu_height)//len(menu_contents) -10<= mouse_pos[1] <= drop_button_coords[1]+45+(menu_height)//len(menu_contents) + radio_button_radius +10:
+                menu_isSawing = True
+                menu_isAmbient = False
+
+            if menu_isVisible and drop_button_coords[0]-50 + menu_width // 2 -10 <= mouse_pos[0] <= drop_button_coords[0]-50 + menu_width // 2 + radio_button_radius + 10 and drop_button_coords[1]+75+(menu_height)//len(menu_contents) -10<= mouse_pos[1] <= drop_button_coords[1]+75+(menu_height)//len(menu_contents) + radio_button_radius +10:
+                menu_isSawing = False
+                menu_isAmbient = True      
+
 
     screen.blit(background, (0,0))
 
@@ -258,6 +292,19 @@ while running:
         x,y = tree_coord[0], tree_coord[1]
         screen.blit(tree_image, (x,y))
 
+    
+    #menu drop down
+    if menu_isVisible:
+        pygame.draw.rect(screen,(255,255,255),(drop_button_coords[0]-100, drop_button_coords[1]+60,menu_width,menu_height))
+        for i,item in enumerate(menu_contents):
+            text = font.render(item, True, (0,0,0))
+            text_rect = text.get_rect(center=(drop_button_coords[0]-115 + menu_width // 2, drop_button_coords[1]+60 + (menu_height // len(menu_contents)) * i + menu_height // (2 * len(menu_contents))))
+            screen.blit(text, text_rect)
+
+        if menu_isSawing:
+            pygame.draw.circle(screen, (0,0,0), (drop_button_coords[0]-50 + menu_width // 2, drop_button_coords[1]+45+(menu_height)//len(menu_contents)),radio_button_radius)
+        if menu_isAmbient:
+            pygame.draw.circle(screen, (0,0,0), (drop_button_coords[0]-50 + menu_width // 2, drop_button_coords[1]+75+(menu_height)//len(menu_contents)),radio_button_radius)
 
     #audio source
     # pygame.draw.circle(screen, (0, 0, 200), (audio_source_coords[0], audio_source_coords[1]), 25)
@@ -280,6 +327,8 @@ while running:
     sensor2.load_asset()
     sensor3.load_asset()
     sensor4.load_asset()
+
+    audio_source.load_asset(get_audio_source_sprite())
 
 
     if sensor1.isSawing:
@@ -306,6 +355,15 @@ while running:
     run_text = font.render("Run", True, (255, 255, 255))
     text_rect = reset_text.get_rect(center=(run_button_coords[0] + RUN_BUTTON_DIMS[0] // 2, run_button_coords[1] + RUN_BUTTON_DIMS[1] // 2))
     screen.blit(run_text, text_rect) 
+
+
+    get_dropdown_symbol = lambda: "^" if menu_isVisible else "v"
+
+    pygame.draw.rect(screen, (255,0,0), (drop_button_coords[0], drop_button_coords[1], DROP_DOWN_BUTTON_DIMS[0], DROP_DOWN_BUTTON_DIMS[1]))
+    font = pygame.font.Font(None, 36)    
+    drop_text = font.render(get_dropdown_symbol(), True, (255, 255, 255))
+    text_rect = reset_text.get_rect(center=((drop_button_coords[0] + DROP_DOWN_BUTTON_DIMS[0] // 2)+25, drop_button_coords[1] + DROP_DOWN_BUTTON_DIMS[1] // 2))
+    screen.blit(drop_text, text_rect) 
 
     pygame.display.flip()
 
