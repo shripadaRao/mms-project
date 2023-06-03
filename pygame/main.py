@@ -7,6 +7,8 @@ import requests
 import json
 import librosa
 import numpy as np
+import asyncio
+import aiohttp
 
 
 WINDOW_SIZE = [1600, 1000] #give multiple of 200 
@@ -114,22 +116,26 @@ class SensorDevice:
         return generate_audio_data_for_dist(original_audio_data, distance_bw_audio_source_sensor)
     
     def predict_audio_data(self, recieved_audio_data):
-        # r = requests.get('http://127.0.0.1:5000/')
-        # resp = r.text
-
         r = requests.post(AUDIO_CLASSIFICATION_URL, data=json.dumps({"audio_data":recieved_audio_data.tolist()}), headers = {"Content-Type": "application/json"})
         return r.json()
+    
+    async def async_predict_audio_data(self, session, recieved_audio_data):
+
+        async with session.post(AUDIO_CLASSIFICATION_URL, json={"audio_data":recieved_audio_data.tolist()}) as response:
+            result = await response.json()
+            return result
+        
     
     def relocate_coords(self, coords):
         self.coords = coords
 
 
-# sensor = SensorDevice([])
-# y, sr = librosa.load('test/10s_ambient.wav')
-# sensor.predict_audio_data(y)
+
 
 
 #***********************************    PYGAME  *************************#
+
+
 
 NUM_OF_TREES = 15
 
@@ -246,6 +252,29 @@ while running:
                     recieved_audio_data_all_sensors.append(recieved_audio_data)
 
                 pred = sensor1.predict_audio_data(recieved_audio_data_all_sensors[0])
+
+                async def gather_pred_data_async():
+
+                    async def main():
+                        async with aiohttp.ClientSession() as session:
+                            responses = await asyncio.gather(
+                                sensor1.async_predict_audio_data(session, recieved_audio_data_all_sensors[0]),
+                                sensor2.async_predict_audio_data(session, recieved_audio_data_all_sensors[1]),
+                                sensor3.async_predict_audio_data(session, recieved_audio_data_all_sensors[2]),
+                                sensor3.async_predict_audio_data(session, recieved_audio_data_all_sensors[3])
+                            )
+
+                            return responses
+
+                    result = await main()
+                    # print(result)
+                    return result
+
+                devices_predictions = asyncio.run(gather_pred_data_async())  
+                print(devices_predictions)
+
+
+
                 # print('prediction: ', pred)
                 # pred['sawing'] = 1
 
