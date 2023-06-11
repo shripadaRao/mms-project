@@ -100,7 +100,7 @@ class AudioSource:
     def load_asset(self, source_path=get_audio_source_sprite()):
         # pygame.draw.circle(screen, (0, 0, 200), (self.coords[0], self.coords[1]), 25)
         saw_tile = pygame.image.load(source_path)
-        screen.blit(saw_tile,(self.coords[0], self.coords[1]))
+        screen.blit(saw_tile,(self.coords[0]-100, self.coords[1]-100))
 
     def create_audio_source_loop(self, source_audio_clips_list, isSawing, BUFFER_FRAME_SIZE = 2, BUFFER_MAX_FRAMES = 3): #buffer frame size is the 
         #isSawing then, add sawing audio clips randomly to the queue.
@@ -179,6 +179,9 @@ def handle_background_audio( playing_audio):
     else:
         pass
 
+#tdoa
+def get_circles_intersection():
+    return audio_source_coords#lol
 
 
 # source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else SAWING_AUDIO_FILEPATH
@@ -263,13 +266,15 @@ sensor_list = SensorDevice(devices_coords[0]), SensorDevice(devices_coords[1]), 
 [sensor1, sensor2, sensor3, sensor4] = sensor_list
 
 menu_isVisible = False
-menu_width, menu_height = 130, 60
-menu_contents = ['sawing', 'ambient']
+menu_width, menu_height = 140, 90
+menu_contents = ['sawing', 'ambient','tdoa']
 
 menu_isAmbient = True
 menu_isSawing = False
 
 radio_button_radius = 7
+
+show_tdoa = False
 
 running = True
 
@@ -344,6 +349,11 @@ while running:
                 menu_isSawing = False
                 menu_isAmbient = True      
 
+            if menu_isVisible and drop_button_coords[0]-50 + menu_width // 2 -10 <= mouse_pos[0] <= drop_button_coords[0]-50 + menu_width // 2 + radio_button_radius + 10 and drop_button_coords[1]+105+(menu_height)//len(menu_contents) -10<= mouse_pos[1] <= drop_button_coords[1]+105+(menu_height)//len(menu_contents) + radio_button_radius +10:
+                # menu_isSawing = False
+                # menu_isAmbient = True 
+                show_tdoa = not show_tdoa
+
 
     screen.blit(background, (0,0))
 
@@ -378,9 +388,12 @@ while running:
             pygame.draw.circle(screen, (0,0,0), (drop_button_coords[0]-50 + menu_width // 2, drop_button_coords[1]+45+(menu_height)//len(menu_contents)),radio_button_radius)
         if menu_isAmbient:
             pygame.draw.circle(screen, (0,0,0), (drop_button_coords[0]-50 + menu_width // 2, drop_button_coords[1]+75+(menu_height)//len(menu_contents)),radio_button_radius)
+        if show_tdoa:
+            pygame.draw.circle(screen, (0,0,0), (drop_button_coords[0]-50 + menu_width // 2, drop_button_coords[1]+105+(menu_height)//len(menu_contents)),radio_button_radius)
+
 
     #audio source
-    # pygame.draw.circle(screen, (0, 0, 200), (audio_source_coords[0], audio_source_coords[1]), 25)
+    # pygame.draw.circle(screen, (200, 00, 00), (audio_source_coords[0], audio_source_coords[1]), 25)
     audio_source = AudioSource(audio_source_coords)
     audio_source.load_asset()
 
@@ -444,6 +457,19 @@ while running:
     font = pygame.font.Font(None,40)
     text_surface = font.render(time_string, True, (255,255,255))
     screen.blit(text_surface,(display_time_coords[0], display_time_coords[1]))
+
+
+    #tdoa
+    #draw circle of radius equal to distance between source and sensor at the sensor
+    # print(find_coord_dist([devices_coords[0][0], devices_coords[0][1]], [audio_source_coords[0], audio_source_coords[1]]))
+    # print(devices_coords, audio_source_coords)
+    if show_tdoa:
+        pygame.draw.circle(screen, (250, 0, 50), (devices_coords[0][0], devices_coords[0][1]), find_coord_dist([devices_coords[0][0], devices_coords[0][1]], [audio_source_coords[0], audio_source_coords[1]]), 3)
+        pygame.draw.circle(screen, (250, 0, 50), (devices_coords[1][0], devices_coords[1][1]), find_coord_dist([devices_coords[1][0], devices_coords[1][1]], [audio_source_coords[0], audio_source_coords[1]]), 3)
+        pygame.draw.circle(screen, (250, 0, 50), (devices_coords[2][0], devices_coords[2][1]), find_coord_dist([devices_coords[2][0], devices_coords[2][1]], [audio_source_coords[0], audio_source_coords[1]]), 3)
+        pygame.draw.circle(screen, (250, 0, 50), (devices_coords[3][0], devices_coords[3][1]), find_coord_dist([devices_coords[3][0], devices_coords[3][1]], [audio_source_coords[0], audio_source_coords[1]]), 3)
+ 
+
 
     pygame.display.flip()
 
