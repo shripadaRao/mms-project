@@ -9,6 +9,7 @@ import librosa
 import numpy as np
 import asyncio
 import aiohttp
+import time
 
 
 WINDOW_SIZE = [1600, 1000] #give multiple of 200 
@@ -19,11 +20,16 @@ WINDOW_SIZE = [1600, 1000] #give multiple of 200
 AUDIO_SOURCE_VARIATION = [WINDOW_SIZE[0]//22.5, WINDOW_SIZE[1]//22.5]
 DEVICE_COORD_VARIATION = [WINDOW_SIZE[0]//22.5, WINDOW_SIZE[1]//22.5]
 
-AUDIO_CLASSIFICATION_URL = 'http://127.0.0.1:5000/classify-audio-data/'
+AUDIO_CLASSIFICATION_API = 'http://127.0.0.1:5000/classify-audio-data/'
 
-SENSOR_SPRIT_PATH = "pygame/assets/sensor-sprit.png"
-SAWING_SPRIT_PATH = "pygame/assets/saw-resized-sprite.png"
-AMBIENT_SOUND_PATH = 'pygame/assets/Ambient-sound-sprite.png'
+SENSOR_SPRITE_PATH = "pygame/assets/sensor-sprit.png"
+SAWING_SPRITE_PATH = "pygame/assets/saw-resized-sprite.png"
+AMBIENT_SPRITE_PATH = 'pygame/assets/Ambient-sound-sprite.png'
+
+SAWING_AUDIO_FILEPATH = "audio_files/10s_sawing.wav"
+SAWING_AUDIO_FILEPATH = "audio_files/merged_sawing_ambient.wav"
+AMBIENT_AUDIO_FILEPATH = "audio_files/10s_ambient.wav"
+
 
 #UTIL functions
 def generate_audio_source_coords(): # returns [width, height]
@@ -77,13 +83,14 @@ def generate_audio_data_for_dist(source_audio, distance):
 menu_isAmbient = True
 menu_isSawing = False
 
-get_audio_source_sprite = lambda: AMBIENT_SOUND_PATH if menu_isAmbient else SAWING_SPRIT_PATH
+get_audio_source_sprite = lambda: AMBIENT_SPRITE_PATH if menu_isAmbient else SAWING_SPRITE_PATH
 
 
 class AudioSource:
     """ should be able to run audio continously, combo of both ambient and sawing(min sawing time > 2 sec) 
         should be able to vary audio with distance. 
-        should be able to display some sprit and 'react' when audio is actually sawing. 
+        should be able to display some sprite and 'react' when audio is actually sawing. 
+        should be able to generate/create audio loop, should be able to stream the same as well.
     """
     def __init__(self, coords) -> None:
         self.coords = coords
@@ -95,11 +102,19 @@ class AudioSource:
         saw_tile = pygame.image.load(source_path)
         screen.blit(saw_tile,(self.coords[0], self.coords[1]))
 
+    def create_audio_source_loop(self, source_audio_clips_list, isSawing, BUFFER_FRAME_SIZE = 2, BUFFER_MAX_FRAMES = 3): #buffer frame size is the 
+        #isSawing then, add sawing audio clips randomly to the queue.
+        
+        pass
+
+    def stream_audio_data(self, ):
+        pass
+
 
 
 class SensorDevice:
     """ should be able to listen to incoming audio, send request the same to server for prediction. 
-        should be able to display sprit and 'react' when audio is detected.  
+        should be able to display sprite and 'react' when audio is detected.  
     """
     #tradeoff - vary audio in this class than AudioSource.
     def __init__(self, coords) -> None:
@@ -107,7 +122,7 @@ class SensorDevice:
         self.isSawing = False   #use pygame.display.update() instead of display.flip()
         self.load_asset()
 
-    def load_asset(self, source_path=SENSOR_SPRIT_PATH): 
+    def load_asset(self, source_path=SENSOR_SPRITE_PATH): 
         pygame.draw.circle(screen, (0, 0, 250), (self.coords[0], self.coords[1]), 25)
         # sensor_tile = pygame.image.load(source_path)
         # screen.blit(sensor_tile,(self.coords[0], self.coords[1]))
@@ -115,13 +130,16 @@ class SensorDevice:
     def recieve_audio_data(self, original_audio_data, distance_bw_audio_source_sensor):
         return generate_audio_data_for_dist(original_audio_data, distance_bw_audio_source_sensor)
     
+    def recieve_streaming_audio(self, recieved_audio_data):
+        pass
+    
     def predict_audio_data(self, recieved_audio_data):
-        r = requests.post(AUDIO_CLASSIFICATION_URL, data=json.dumps({"audio_data":recieved_audio_data.tolist()}), headers = {"Content-Type": "application/json"})
+        r = requests.post(AUDIO_CLASSIFICATION_API, data=json.dumps({"audio_data":recieved_audio_data.tolist()}), headers = {"Content-Type": "application/json"})
         return r.json()
     
     async def async_predict_audio_data(self, session, recieved_audio_data):
 
-        async with session.post(AUDIO_CLASSIFICATION_URL, json={"audio_data":recieved_audio_data.tolist()}) as response:
+        async with session.post(AUDIO_CLASSIFICATION_API, json={"audio_data":recieved_audio_data.tolist()}) as response:
             result = await response.json()
             return result
         
@@ -134,6 +152,38 @@ class SensorDevice:
 
 
 #***********************************    PYGAME  *************************#
+
+
+#load audio_files
+
+ambient_audio_data, sample_rate = librosa.load(AMBIENT_AUDIO_FILEPATH)
+sawing_audio_data, sample_rate = librosa.load(SAWING_AUDIO_FILEPATH)
+
+
+#display time
+def current_time_string():
+    return time.strftime("%H:%M:%S", time.localtime())
+
+#play audio
+def play_audio(audio_file_path):
+    pygame.mixer.init()
+    pygame.mixer.music.load(audio_file_path)
+    pygame.mixer.music.play(-1)
+
+def handle_background_audio( playing_audio):
+    if source_audio_file_path != playing_audio:
+        pygame.mixer.music.stop()
+        pygame.mixer.init()
+        pygame.mixer.music.load(source_audio_file_path)
+        pygame.mixer.music.play(-1)
+    else:
+        pass
+
+
+
+# source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else SAWING_AUDIO_FILEPATH
+# source_audio_file_path = "audio_files/background_sawing.wav" if menu_isAmbient else SAWING_AUDIO_FILEPATH
+source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else "audio_files/background_sawing.wav"
 
 
 
@@ -204,6 +254,9 @@ run_button_coords = [WINDOW_SIZE[0]/1.081, WINDOW_SIZE[1]/50]
 DROP_DOWN_BUTTON_DIMS = [WINDOW_SIZE[0]/60,WINDOW_SIZE[1]/20]
 drop_button_coords = [WINDOW_SIZE[0]/1.020, WINDOW_SIZE[1]/50]
 
+display_time_coords = [WINDOW_SIZE[0]/2.15, WINDOW_SIZE[1]/50]
+
+
 
 audio_source = AudioSource(audio_source_coords)
 sensor_list = SensorDevice(devices_coords[0]), SensorDevice(devices_coords[1]), SensorDevice(devices_coords[2]), SensorDevice(devices_coords[3])
@@ -220,11 +273,15 @@ radio_button_radius = 7
 
 running = True
 
+# print(s)
+play_audio(source_audio_file_path)
+playing_audio = source_audio_file_path
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-    
+   
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
 
@@ -243,15 +300,13 @@ while running:
 
             if run_button_coords[0] <= mouse_pos[0] <= run_button_coords[0]+RUN_BUTTON_DIMS[0] and run_button_coords[1] <= mouse_pos[1] <= run_button_coords[1]+RUN_BUTTON_DIMS[1]:
                 # print('run clicked!')
-                audio_filepath = 'test/10s_sawing.wav'
-                source_audio_data, sample_rate = librosa.load(audio_filepath)
+
+                source_audio_data = ambient_audio_data if menu_isAmbient else sawing_audio_data
 
                 recieved_audio_data_all_sensors = []    
                 for idx, sensor in enumerate(sensor_list):
                     recieved_audio_data =sensor.recieve_audio_data(source_audio_data, find_coord_dist(sensor.coords,audio_source.coords))
                     recieved_audio_data_all_sensors.append(recieved_audio_data)
-
-                pred = sensor1.predict_audio_data(recieved_audio_data_all_sensors[0])
 
                 async def gather_pred_data_async():
 
@@ -267,32 +322,17 @@ while running:
                             return responses
 
                     result = await main()
-                    # print(result)
                     return result
 
                 devices_predictions = asyncio.run(gather_pred_data_async())  
                 print(devices_predictions)
+             
+                sensor1.isSawing = True if 'sawing' in devices_predictions[0] else sensor1.isSawing
+                sensor2.isSawing = True if 'sawing' in devices_predictions[1] else sensor2.isSawing
+                sensor3.isSawing = True if 'sawing' in devices_predictions[2] else sensor3.isSawing
+                sensor4.isSawing = True if 'sawing' in devices_predictions[3] else sensor4.isSawing
 
-
-
-                # print('prediction: ', pred)
-                # pred['sawing'] = 1
-
-                # if 'sawing' in audio_filepath:
-                #     sensor1.isSawing = True
-                #     sensor2.isSawing = True
-                #     sensor3.isSawing = True
-                #     sensor4.isSawing = True
-                    
-                #     print('SAWING!')
-                # else:
-                #     print('no sawing!')
-                if menu_isSawing:
-                    sensor1.isSawing = True
-                    sensor2.isSawing = True
-                    sensor3.isSawing = True
-                    sensor4.isSawing = True
-                                
+        
             if drop_button_coords[0] <= mouse_pos[0] <= drop_button_coords[0]+DROP_DOWN_BUTTON_DIMS[0] and drop_button_coords[1] <= mouse_pos[1] <= drop_button_coords[1]+DROP_DOWN_BUTTON_DIMS[1]:
                 menu_isVisible = not menu_isVisible
 
@@ -307,6 +347,10 @@ while running:
 
     screen.blit(background, (0,0))
 
+    source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else "audio_files/background_sawing.wav"
+    handle_background_audio(playing_audio)
+    # play_audio(source_audio_file_path())
+    playing_audio = source_audio_file_path
 
     #render background
     for y in range(num_tiles_y):
@@ -380,7 +424,7 @@ while running:
     screen.blit(reset_text, text_rect)  
 
     pygame.draw.rect(screen, (255,0,0), (run_button_coords[0], run_button_coords[1], RUN_BUTTON_DIMS[0], RUN_BUTTON_DIMS[1]))
-    font = pygame.font.Font(None, 36)    
+    # font = pygame.font.Font(None, 36)    
     run_text = font.render("Run", True, (255, 255, 255))
     text_rect = reset_text.get_rect(center=(run_button_coords[0] + RUN_BUTTON_DIMS[0] // 2, run_button_coords[1] + RUN_BUTTON_DIMS[1] // 2))
     screen.blit(run_text, text_rect) 
@@ -389,10 +433,17 @@ while running:
     get_dropdown_symbol = lambda: "^" if menu_isVisible else "v"
 
     pygame.draw.rect(screen, (255,0,0), (drop_button_coords[0], drop_button_coords[1], DROP_DOWN_BUTTON_DIMS[0], DROP_DOWN_BUTTON_DIMS[1]))
-    font = pygame.font.Font(None, 36)    
+    # font = pygame.font.Font(None, 36)    
     drop_text = font.render(get_dropdown_symbol(), True, (255, 255, 255))
     text_rect = reset_text.get_rect(center=((drop_button_coords[0] + DROP_DOWN_BUTTON_DIMS[0] // 2)+25, drop_button_coords[1] + DROP_DOWN_BUTTON_DIMS[1] // 2))
     screen.blit(drop_text, text_rect) 
+
+
+    #display time
+    time_string = current_time_string()
+    font = pygame.font.Font(None,40)
+    text_surface = font.render(time_string, True, (255,255,255))
+    screen.blit(text_surface,(display_time_coords[0], display_time_coords[1]))
 
     pygame.display.flip()
 
