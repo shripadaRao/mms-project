@@ -10,6 +10,7 @@ import numpy as np
 import asyncio
 import aiohttp
 import time
+import gzip
 
 
 WINDOW_SIZE = [1600, 1000] #give multiple of 200 
@@ -137,9 +138,14 @@ class SensorDevice:
         r = requests.post(AUDIO_CLASSIFICATION_API, data=json.dumps({"audio_data":recieved_audio_data.tolist()}), headers = {"Content-Type": "application/json"})
         return r.json()
     
-    async def async_predict_audio_data(self, session, recieved_audio_data):
+    async def async_predict_audio_data(self, session, received_audio_data):
+        # Compress the audio data using gzip
+        compressed_audio_data = gzip.compress(received_audio_data.tobytes())
 
-        async with session.post(AUDIO_CLASSIFICATION_API, json={"audio_data":recieved_audio_data.tolist()}) as response:
+        headers = {'Content-Encoding': 'gzip'}
+
+        async with session.post(AUDIO_CLASSIFICATION_API, data=compressed_audio_data, headers=headers) as response:
+            # Decode the response if needed
             result = await response.json()
             return result
         

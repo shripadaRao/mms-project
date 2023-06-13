@@ -3,20 +3,18 @@ from PIL import Image
 import numpy as np
 import tensorflow as tf
 import librosa
-
-# import librosa.display
+import gzip
+from flask import Flask, request
 import io
-
 import matplotlib
-matplotlib.use('Agg')
-
 import matplotlib.pyplot as plt
+
+
+matplotlib.use('Agg')
 plt.switch_backend('Agg')
 
-from flask import Flask, request
-
-
-ML_MODEL_PATH = "cnn_model_v2.tflite"
+# ML_MODEL_PATH = "cnn_model_v2.tflite"
+ML_MODEL_PATH = "models/cnn_model_v3.tflite"
 
 prediction_classes = {0:'ambient',1:'sawing'}
 
@@ -39,6 +37,7 @@ def generate_spectrogram_img_memory(audio_data, sr):
     fig.savefig(buf, format='png')
     buf.seek(0)
     img_arr = np.array(Image.open(buf))
+    # Image.fromarray(img_arr).save('random'+str(np.random.randint(100))+'.png')
 
     return img_arr
 
@@ -47,7 +46,7 @@ def pre_process_img_v3_data(np_img, dims):
     left, upper, right, lower = dims[0], dims[1], dims[2], dims[3]
     img = Image.fromarray(np_img)
 
-    cropped_img = img.crop((left, upper, right, lower))
+    cropped_img = img.crop((left, upper+50, right, lower+50))
 
     grey_img = cropped_img.convert('L')
     
@@ -77,11 +76,10 @@ def predict_with_tflite_data(image_data, model_path):
     interpreter.set_tensor(input_details[0]['index'], image)
     interpreter.invoke()
     prediction = interpreter.get_tensor(output_details[0]['index'])
-
+    print(prediction)
     # Return the prediction
     prediction_accuracy = max(prediction[0])
     class_name = prediction_classes[np.argmax(prediction)]
-
     return [class_name, prediction_accuracy]
 
 def predict_audio_data(audio_data, sr=20400):
@@ -110,11 +108,23 @@ app = Flask(__name__)
 def greet():
     return "hello world!"
 
-@app.route('/classify-audio-data/', methods = ['POST'])
+@app.route('/classify-audio-data/', methods=['POST'])
 def classify_audio_data():
-    audio_data_json = request.get_json()
-    audio_data = np.array(audio_data_json['audio_data'])
-    return predict_audio_data(audio_data,sr=20400)
+    # Check if the request contains gzipped data
+    if request.headers.get('Content-Encoding') == 'gzip':
+        gzipped_data = request.get_data()
+        audio_data = np.frombuffer(gzip.decompress(gzipped_data), dtype=np.float32)
+    else:
+        audio_data_json = request.get_json()
+        audio_data = np.array(audio_data_json['audio_data'])
+
+    # Perform audio data classification
+    result = predict_audio_data(audio_data, sr=20400)
+
+    return (result)
+
+if __name__ == '__main__':
+    app.run()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0',port=5000)
