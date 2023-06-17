@@ -8,6 +8,8 @@ from flask import Flask, request
 import io
 import matplotlib
 import matplotlib.pyplot as plt
+import math
+import random
 
 
 matplotlib.use('Agg')
@@ -101,6 +103,65 @@ def predict_audio_data(audio_data, sr=20400):
         x+=180
     return pred_dic
 
+def find_circle_intersection(x1, y1, r1, x2, y2, r2):
+    distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    if math.isclose(distance, r1 + r2):
+        intersection_x = x1 + (r1 * (x2 - x1)) / distance
+        intersection_y = y1 + (r1 * (y2 - y1)) / distance
+        return [intersection_x, intersection_y]
+   
+"""
+    data object looks like below
+[
+	{
+	  "sensor1" : {
+		"coords" : [],
+		"distance_to_audio_source" : int
+		}
+	},
+	{
+	  "sensor2" : {
+		"coords" : [],
+		"distance_to_audio_source" : int
+		}
+	},
+	.
+	.	
+]
+	"""
+    
+
+def find_avg_intersection(sensors_data):
+    all_sensor_coords_arr = []
+    all_distances_arr = []
+
+    for sensor_data in sensors_data:
+        for sensor_name, sensor_info in sensor_data.items():
+            coords = sensor_info["coords"]
+            distance = sensor_info["distance_to_audio_source"]
+            all_sensor_coords_arr.append(coords)
+            all_distances_arr.append(distance)
+
+    all_circles_intersection_coords = []
+
+    for i in range(len(all_sensor_coords_arr)-1):
+        for j in range(i+1, len(all_sensor_coords_arr)):
+            x1, y1, r1 = all_sensor_coords_arr[i][0], all_sensor_coords_arr[i][1], all_distances_arr[i]
+            x2, y2, r2 = all_sensor_coords_arr[j][0], all_sensor_coords_arr[j][1], all_distances_arr[j]
+            
+            intersection_coords = find_circle_intersection(x1, y1, r1, x2, y2, r2)
+            print("intersection_coords: ", intersection_coords)
+            if intersection_coords:
+                all_circles_intersection_coords.append(intersection_coords)
+    print("all intersection: ",all_circles_intersection_coords)
+    if all_circles_intersection_coords:
+        avg_x = sum(coord[0] for coord in all_circles_intersection_coords) / len(all_circles_intersection_coords)
+        avg_y = sum(coord[1] for coord in all_circles_intersection_coords) / len(all_circles_intersection_coords)
+        return [avg_x, avg_y]
+    else:
+        return None
+
+
 
 app = Flask(__name__)
 
@@ -123,8 +184,34 @@ def classify_audio_data():
 
     return (result)
 
-if __name__ == '__main__':
-    app.run()
+@app.route('/localize-audio-source/tdoa/', methods=['POST'])
+def tdoa():
+    sensors_data = request.get_json()
+    avg_intersection_coords = find_avg_intersection(sensors_data)
+    print(avg_intersection_coords)
+    return avg_intersection_coords
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0',port=5000)
+
+# sensor_data = {
+#     "sensor1": {
+#         "coords": [0, 0],
+#         "distance_to_audio_source": random.randint(1, 10)
+#     },
+#     "sensor2": {
+#         "coords": [3, 4],
+#         "distance_to_audio_source": random.randint(1, 10)
+#     },
+#     "sensor3": {
+#         "coords": [-2, 2],
+#         "distance_to_audio_source": random.randint(1, 10)
+#     },
+#     # Add more sensor data as needed
+# }
+
+# # Test the function
+# intersection_point = find_avg_intersection(sensor_data)
+# print("Average Intersection Point:", intersection_point)
