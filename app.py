@@ -104,11 +104,28 @@ def predict_audio_data(audio_data, sr=20400):
     return pred_dic
 
 def find_circle_intersection(x1, y1, r1, x2, y2, r2):
-    distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-    if math.isclose(distance, r1 + r2):
-        intersection_x = x1 + (r1 * (x2 - x1)) / distance
-        intersection_y = y1 + (r1 * (y2 - y1)) / distance
-        return [intersection_x, intersection_y]
+    dx = x2 - x1
+    dy = y2 - y1
+    distance = math.sqrt(dx**2 + dy**2)
+    if distance > r1 + r2:
+        return None
+
+    if distance < abs(r1 - r2):
+        return None
+
+    if distance == 0 and r1 == r2:
+        return None
+
+    # Calculate the intersection point(s)
+    a = (r1**2 - r2**2 + distance**2) / (2 * distance)
+    h = math.sqrt(r1**2 - a**2)
+    x3 = x1 + (dx * a / distance)
+    y3 = y1 + (dy * a / distance)
+    x4 = x3 + (h * dy / distance)
+    y4 = y3 - (h * dx / distance)
+
+    # Return the intersection point(s) as a tuple of (x, y) coordinates
+    return (x4, y4)
    
 """
     data object looks like below
@@ -132,7 +149,7 @@ def find_circle_intersection(x1, y1, r1, x2, y2, r2):
     
 
 def find_avg_intersection(sensors_data):
-    all_sensor_coords_arr = []
+    all_sensor_coords_arr = []#[[],[],[],[]]
     all_distances_arr = []
 
     for sensor_data in sensors_data:
@@ -145,15 +162,15 @@ def find_avg_intersection(sensors_data):
     all_circles_intersection_coords = []
 
     for i in range(len(all_sensor_coords_arr)-1):
-        for j in range(i+1, len(all_sensor_coords_arr)):
+        for j in range(i+2, len(all_sensor_coords_arr)):
             x1, y1, r1 = all_sensor_coords_arr[i][0], all_sensor_coords_arr[i][1], all_distances_arr[i]
             x2, y2, r2 = all_sensor_coords_arr[j][0], all_sensor_coords_arr[j][1], all_distances_arr[j]
             
             intersection_coords = find_circle_intersection(x1, y1, r1, x2, y2, r2)
-            print("intersection_coords: ", intersection_coords)
+            # print("intersection_coords: ", intersection_coords)
             if intersection_coords:
                 all_circles_intersection_coords.append(intersection_coords)
-    print("all intersection: ",all_circles_intersection_coords)
+    # print("all intersection: ",all_circles_intersection_coords)
     if all_circles_intersection_coords:
         avg_x = sum(coord[0] for coord in all_circles_intersection_coords) / len(all_circles_intersection_coords)
         avg_y = sum(coord[1] for coord in all_circles_intersection_coords) / len(all_circles_intersection_coords)
@@ -188,7 +205,7 @@ def classify_audio_data():
 def tdoa():
     sensors_data = request.get_json()
     avg_intersection_coords = find_avg_intersection(sensors_data)
-    print(avg_intersection_coords)
+    print("predicted coords: ",avg_intersection_coords)
     return avg_intersection_coords
 
 
