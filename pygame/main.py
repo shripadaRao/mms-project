@@ -22,6 +22,7 @@ AUDIO_SOURCE_VARIATION = [WINDOW_SIZE[0]//22.5, WINDOW_SIZE[1]//22.5]
 DEVICE_COORD_VARIATION = [WINDOW_SIZE[0]//22.5, WINDOW_SIZE[1]//22.5]
 
 AUDIO_CLASSIFICATION_API = 'http://127.0.0.1:5000/classify-audio-data/'
+TDOA_ESTIMATION_API = "http://127.0.0.1:5000/localize-audio-source/tdoa/"
 
 SENSOR_SPRITE_PATH = "pygame/assets/sensor-sprit.png"
 SAWING_SPRITE_PATH = "pygame/assets/saw-resized-sprite.png"
@@ -154,6 +155,44 @@ class SensorDevice:
         self.coords = coords
 
 
+def sensors_data_tdoa(sensors_coords, distances_arr):
+    sensors_data = [
+        {
+        "sensor1" : {
+            "coords" : sensors_coords[0],
+            "distance_to_audio_source" : distances_arr[0]
+            }
+        },
+        {
+        "sensor2" : {
+            "coords" : sensors_coords[1],
+            "distance_to_audio_source" : distances_arr[1]
+            }
+        },
+            {
+        "sensor3" : {
+            "coords" : sensors_coords[2],
+            "distance_to_audio_source" : distances_arr[2]
+            }
+        },
+            {
+        "sensor4" : {
+            "coords" : sensors_coords[3],
+            "distance_to_audio_source" : distances_arr[3]
+            }
+        }	
+    ]
+    return sensors_data
+     
+def estimate_tdoa(sensors_data):
+    response = requests.post(TDOA_ESTIMATION_API, json=sensors_data)
+    if response.status_code == 200:
+        tdoa_estimate = response.json()
+        return tdoa_estimate
+    else:
+        print(f"Error: {response.status_code} - {response.text}")
+        return None
+
 
 
 
@@ -185,9 +224,6 @@ def handle_background_audio( playing_audio):
     else:
         pass
 
-#tdoa
-def get_circles_intersection():
-    return audio_source_coords#lol
 
 
 # source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else SAWING_AUDIO_FILEPATH
@@ -280,7 +316,7 @@ menu_isSawing = False
 
 radio_button_radius = 7
 
-show_tdoa = False
+is_tdoa = False
 
 running = True
 
@@ -337,6 +373,17 @@ while running:
 
                 devices_predictions = asyncio.run(gather_pred_data_async())  
                 print(devices_predictions)
+
+
+                if is_tdoa:
+                    sensor_source_dist_arr = []
+                    for device_coord in devices_coords:
+                        sensor_source_dist_arr.append(find_coord_dist(device_coord,audio_source_coords))
+                    sensors_data = sensors_data_tdoa(devices_coords,sensor_source_dist_arr) 
+                    tdoa_est = estimate_tdoa(sensors_data)
+                    
+                    print("actual coords: ", audio_source_coords)            
+                    print("tdoa prediction: ", tdoa_est)       
              
                 sensor1.isSawing = True if 'sawing' in devices_predictions[0] else sensor1.isSawing
                 sensor2.isSawing = True if 'sawing' in devices_predictions[1] else sensor2.isSawing
@@ -358,7 +405,7 @@ while running:
             if menu_isVisible and drop_button_coords[0]-50 + menu_width // 2 -10 <= mouse_pos[0] <= drop_button_coords[0]-50 + menu_width // 2 + radio_button_radius + 10 and drop_button_coords[1]+105+(menu_height)//len(menu_contents) -10<= mouse_pos[1] <= drop_button_coords[1]+105+(menu_height)//len(menu_contents) + radio_button_radius +10:
                 # menu_isSawing = False
                 # menu_isAmbient = True 
-                show_tdoa = not show_tdoa
+                is_tdoa = not is_tdoa
 
 
     screen.blit(background, (0,0))
@@ -394,7 +441,7 @@ while running:
             pygame.draw.circle(screen, (0,0,0), (drop_button_coords[0]-50 + menu_width // 2, drop_button_coords[1]+45+(menu_height)//len(menu_contents)),radio_button_radius)
         if menu_isAmbient:
             pygame.draw.circle(screen, (0,0,0), (drop_button_coords[0]-50 + menu_width // 2, drop_button_coords[1]+75+(menu_height)//len(menu_contents)),radio_button_radius)
-        if show_tdoa:
+        if is_tdoa:
             pygame.draw.circle(screen, (0,0,0), (drop_button_coords[0]-50 + menu_width // 2, drop_button_coords[1]+105+(menu_height)//len(menu_contents)),radio_button_radius)
 
 
@@ -467,9 +514,7 @@ while running:
 
     #tdoa
     #draw circle of radius equal to distance between source and sensor at the sensor
-    # print(find_coord_dist([devices_coords[0][0], devices_coords[0][1]], [audio_source_coords[0], audio_source_coords[1]]))
-    # print(devices_coords, audio_source_coords)
-    if show_tdoa:
+    if is_tdoa:
         pygame.draw.circle(screen, (250, 0, 50), (devices_coords[0][0], devices_coords[0][1]), find_coord_dist([devices_coords[0][0], devices_coords[0][1]], [audio_source_coords[0], audio_source_coords[1]]), 3)
         pygame.draw.circle(screen, (250, 0, 50), (devices_coords[1][0], devices_coords[1][1]), find_coord_dist([devices_coords[1][0], devices_coords[1][1]], [audio_source_coords[0], audio_source_coords[1]]), 3)
         pygame.draw.circle(screen, (250, 0, 50), (devices_coords[2][0], devices_coords[2][1]), find_coord_dist([devices_coords[2][0], devices_coords[2][1]], [audio_source_coords[0], audio_source_coords[1]]), 3)
