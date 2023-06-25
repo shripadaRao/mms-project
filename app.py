@@ -9,7 +9,7 @@ import io
 import matplotlib
 import matplotlib.pyplot as plt
 import math
-import random
+from statistics import mode
 
 
 matplotlib.use('Agg')
@@ -78,7 +78,7 @@ def predict_with_tflite_data(image_data, model_path):
     interpreter.set_tensor(input_details[0]['index'], image)
     interpreter.invoke()
     prediction = interpreter.get_tensor(output_details[0]['index'])
-    print(prediction)
+    # print(prediction)
     # Return the prediction
     prediction_accuracy = max(prediction[0])
     class_name = prediction_classes[np.argmax(prediction)]
@@ -103,32 +103,8 @@ def predict_audio_data(audio_data, sr=20400):
         x+=180
     return pred_dic
 
-def find_circle_intersection(x1, y1, r1, x2, y2, r2):
-    dx = x2 - x1
-    dy = y2 - y1
-    distance = math.sqrt(dx**2 + dy**2)
-    if distance > r1 + r2:
-        return None
-
-    if distance < abs(r1 - r2):
-        return None
-
-    if distance == 0 and r1 == r2:
-        return None
-
-    # Calculate the intersection point(s)
-    a = (r1**2 - r2**2 + distance**2) / (2 * distance)
-    h = math.sqrt(r1**2 - a**2)
-    x3 = x1 + (dx * a / distance)
-    y3 = y1 + (dy * a / distance)
-    x4 = x3 + (h * dy / distance)
-    y4 = y3 - (h * dx / distance)
-
-    # Return the intersection point(s) as a tuple of (x, y) coordinates
-    return (x4, y4)
-   
 """
-    data object looks like below
+    TDOA - sensors data object received is of below data model
 [
 	{
 	  "sensor1" : {
@@ -148,7 +124,34 @@ def find_circle_intersection(x1, y1, r1, x2, y2, r2):
 	"""
     
 
-def find_avg_intersection(sensors_data):
+def get_intersection_points(x0, y0, r0, x1, y1, r1):
+    # circle 1: (x0, y0), radius r0
+    # circle 2: (x1, y1), radius r1
+    d=math.sqrt((x1-x0)**2 + (y1-y0)**2)    
+    # non intersecting
+    if d > r0 + r1 :
+        return None
+    # One circle within other
+    if d < abs(r0-r1):
+        return None
+    # coincident circles
+    if d == 0 and r0 == r1:
+        return None
+    else:
+        a=(r0**2-r1**2+d**2)/(2*d)
+        h=math.sqrt(r0**2-a**2)
+        x2=x0+a*(x1-x0)/d   
+        y2=y0+a*(y1-y0)/d   
+        x3=x2+h*(y1-y0)/d     
+        y3=y2-h*(x1-x0)/d 
+
+        x4=x2-h*(y1-y0)/d
+        y4=y2+h*(x1-x0)/d
+        
+        return [[x3,y3],[x4,y4]]
+    
+   
+def estimate_tdoa(sensors_data):
     all_sensor_coords_arr = []#[[],[],[],[]]
     all_distances_arr = []
 
@@ -166,15 +169,16 @@ def find_avg_intersection(sensors_data):
             x1, y1, r1 = all_sensor_coords_arr[i][0], all_sensor_coords_arr[i][1], all_distances_arr[i]
             x2, y2, r2 = all_sensor_coords_arr[j][0], all_sensor_coords_arr[j][1], all_distances_arr[j]
             
-            intersection_coords = find_circle_intersection(x1, y1, r1, x2, y2, r2)
-            # print("intersection_coords: ", intersection_coords)
+            intersection_coords = get_intersection_points(x1, y1, r1, x2, y2, r2)
             if intersection_coords:
-                all_circles_intersection_coords.append(intersection_coords)
-    # print("all intersection: ",all_circles_intersection_coords)
+                all_circles_intersection_coords.append(intersection_coords[0])
+                all_circles_intersection_coords.append(intersection_coords[1])
+
     if all_circles_intersection_coords:
-        avg_x = sum(coord[0] for coord in all_circles_intersection_coords) / len(all_circles_intersection_coords)
-        avg_y = sum(coord[1] for coord in all_circles_intersection_coords) / len(all_circles_intersection_coords)
-        return [avg_x, avg_y]
+        #round off the coordinates and find the most occuring coordinates
+        x_coords, y_coords = [round(intersection_arr[0],2) for intersection_arr in all_circles_intersection_coords], [round(intersection_arr[1],2) for intersection_arr in all_circles_intersection_coords]
+        x_coord, y_coord = mode(x_coords), mode(y_coords)
+        return [x_coord, y_coord]
     else:
         return None
 
@@ -204,31 +208,11 @@ def classify_audio_data():
 @app.route('/localize-audio-source/tdoa/', methods=['POST'])
 def tdoa():
     sensors_data = request.get_json()
-    avg_intersection_coords = find_avg_intersection(sensors_data)
-    print("predicted coords: ",avg_intersection_coords)
-    return avg_intersection_coords
+    predicted_tdoa_coords = estimate_tdoa(sensors_data)
+    print("predicted coords: ",predicted_tdoa_coords)
+    return predicted_tdoa_coords
 
 
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0',port=5000)
-
-# sensor_data = {
-#     "sensor1": {
-#         "coords": [0, 0],
-#         "distance_to_audio_source": random.randint(1, 10)
-#     },
-#     "sensor2": {
-#         "coords": [3, 4],
-#         "distance_to_audio_source": random.randint(1, 10)
-#     },
-#     "sensor3": {
-#         "coords": [-2, 2],
-#         "distance_to_audio_source": random.randint(1, 10)
-#     },
-#     # Add more sensor data as needed
-# }
-
-# # Test the function
-# intersection_point = find_avg_intersection(sensor_data)
-# print("Average Intersection Point:", intersection_point)
