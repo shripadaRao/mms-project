@@ -28,9 +28,9 @@ SENSOR_SPRITE_PATH = "pygame/assets/sensor-sprit.png"
 SAWING_SPRITE_PATH = "pygame/assets/saw-resized-sprite.png"
 AMBIENT_SPRITE_PATH = 'pygame/assets/Ambient-sound-sprite.png'
 
-SAWING_AUDIO_FILEPATH = "audio_files/10s_sawing.wav"
-SAWING_AUDIO_FILEPATH = "audio_files/merged_sawing_ambient.wav"
-AMBIENT_AUDIO_FILEPATH = "audio_files/10s_ambient.wav"
+PYGAME_SAWING_AUDIO_FILEPATH = "pygame/audio_files/background_sawing.wav"
+SAWING_AUDIO_FILEPATH = "pygame/audio_files/merged_sawing_ambient.wav"
+AMBIENT_AUDIO_FILEPATH = "pygame/audio_files/10s_ambient.wav"
 
 
 #UTIL functions
@@ -229,6 +229,7 @@ def handle_background_audio( playing_audio):
 # source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else SAWING_AUDIO_FILEPATH
 # source_audio_file_path = "audio_files/background_sawing.wav" if menu_isAmbient else SAWING_AUDIO_FILEPATH
 source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else "audio_files/background_sawing.wav"
+source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else PYGAME_SAWING_AUDIO_FILEPATH
 
 
 
@@ -411,6 +412,8 @@ while running:
     screen.blit(background, (0,0))
 
     source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else "audio_files/background_sawing.wav"
+    source_audio_file_path = AMBIENT_AUDIO_FILEPATH if menu_isAmbient else PYGAME_SAWING_AUDIO_FILEPATH
+
     handle_background_audio(playing_audio)
     # play_audio(source_audio_file_path())
     playing_audio = source_audio_file_path
