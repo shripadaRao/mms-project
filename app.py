@@ -11,6 +11,12 @@ import matplotlib.pyplot as plt
 import math
 from statistics import mode
 
+import tensorflow as tf
+import vggish_input
+import vggish_slim
+import xgboost as xgb
+import tensorflow_hub as hub
+
 
 matplotlib.use('Agg')
 plt.switch_backend('Agg')
@@ -102,6 +108,32 @@ def predict_audio_data(audio_data, sr=20400):
             pred_dic[pred[0]] +=1
         x+=180
     return pred_dic
+
+class VGGishAudioClassifier:
+    def __init__(self, model_path, classifier_path):
+        self.model = hub.load(model_path = 'https://tfhub.dev/google/vggish/1')
+        self.classifier = xgb.XGBClassifier()
+        self.classifier.load_model(classifier_path)
+
+    def extract_audio_features(self, audio_file):
+        features = []
+        with tf.Graph().as_default(), tf.compat.v1.Session() as sess:
+            vggish_slim.define_vggish_slim(training=False)
+            vggish_slim.load_vggish_slim_checkpoint(sess, 'vggish_model.ckpt')
+            tf_features_tensor = sess.graph.get_tensor_by_name('vggish/input_features:0')
+            tf_embedding_tensor = sess.graph.get_tensor_by_name('vggish/embedding:0')
+
+            wav_data = vggish_input.wavfile_to_examples(audio_file)
+            features_batch = sess.run(tf_embedding_tensor, feed_dict={tf_features_tensor: wav_data})
+            features.append(features_batch)
+
+        return np.vstack(features)
+
+    def predict(self, audio_file):
+        features = self.extract_audio_features(audio_file)
+        prediction = self.classifier.predict(features)[0]
+        return prediction
+
 
 """
     TDOA - sensors data object received is of below data model
