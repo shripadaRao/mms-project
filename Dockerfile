@@ -9,6 +9,10 @@ COPY requirements.txt .
 # Install the Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Download the files and store in the '/app/vggish' directory
+RUN curl -o vggish/vggish_model.ckpt https://storage.googleapis.com/audioset/vggish_model.ckpt && \
+    curl -o vggish/vggish_pca_params.npz https://storage.googleapis.com/audioset/vggish_pca_params.npz
+
 # Copy the rest of your application's code to the container
 COPY . .
 
