@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 import librosa
 import gzip
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import io
 import matplotlib
 import matplotlib.pyplot as plt
@@ -12,10 +12,15 @@ import math
 from statistics import mode
 
 import tensorflow as tf
-import vggish_input
-import vggish_slim
-import xgboost as xgb
-import tensorflow_hub as hub
+from vggish import vggish_input
+from vggish import vggish_slim
+# import xgboost as xgb
+import joblib
+
+import os
+import numpy as np
+from pydub import AudioSegment
+import soundfile as sf
 
 
 matplotlib.use('Agg')
@@ -27,112 +32,200 @@ ML_MODEL_PATH = "models/cnn_model_v3.tflite"
 prediction_classes = {0:'ambient',1:'sawing'}
 
 """generate 10second spectrogram. slide through 6 iterations of 180 pixels along x axis"""
-def generate_spectrogram_img_memory(audio_data, sr):
-    y = audio_data
-    D = np.abs(librosa.stft(y))**2
-    S = librosa.feature.melspectrogram(S=D, sr=sr)
+# def generate_spectrogram_img_memory(audio_data, sr):
+#     y = audio_data
+#     D = np.abs(librosa.stft(y))**2
+#     S = librosa.feature.melspectrogram(S=D, sr=sr)
 
-    fig, ax = plt.subplots(figsize=(14.5, 6))
-    S_dB = librosa.power_to_db(S, ref=np.max)
-    img = librosa.display.specshow(S_dB, x_axis='time',
-                                   y_axis='mel', sr=sr,
-                                   fmax=6000, ax=ax)
+#     fig, ax = plt.subplots(figsize=(14.5, 6))
+#     S_dB = librosa.power_to_db(S, ref=np.max)
+#     img = librosa.display.specshow(S_dB, x_axis='time',
+#                                    y_axis='mel', sr=sr,
+#                                    fmax=6000, ax=ax)
 
-    fig.colorbar(img, ax=ax, format='%+2.0f dB')
-    plt.close(fig)
+#     fig.colorbar(img, ax=ax, format='%+2.0f dB')
+#     plt.close(fig)
 
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png')
-    buf.seek(0)
-    img_arr = np.array(Image.open(buf))
-    # Image.fromarray(img_arr).save('random'+str(np.random.randint(100))+'.png')
+#     buf = io.BytesIO()
+#     fig.savefig(buf, format='png')
+#     buf.seek(0)
+#     img_arr = np.array(Image.open(buf))
+#     # Image.fromarray(img_arr).save('random'+str(np.random.randint(100))+'.png')
 
-    return img_arr
+#     return img_arr
 
-# crop_img_dims = [170,200,350,380]       #left, upper, right, lower
-def pre_process_img_v3_data(np_img, dims):
-    left, upper, right, lower = dims[0], dims[1], dims[2], dims[3]
-    img = Image.fromarray(np_img)
+# # crop_img_dims = [170,200,350,380]       #left, upper, right, lower
+# def pre_process_img_v3_data(np_img, dims):
+#     left, upper, right, lower = dims[0], dims[1], dims[2], dims[3]
+#     img = Image.fromarray(np_img)
 
-    cropped_img = img.crop((left, upper+50, right, lower+50))
+#     cropped_img = img.crop((left, upper+50, right, lower+50))
 
-    grey_img = cropped_img.convert('L')
+#     grey_img = cropped_img.convert('L')
     
-    grey_img = grey_img.point(lambda p: 255 if p > 165 else p)
-    grey_img = grey_img.point(lambda p: 110 if p < 130 else p)
+#     grey_img = grey_img.point(lambda p: 255 if p > 165 else p)
+#     grey_img = grey_img.point(lambda p: 110 if p < 130 else p)
 
-    np_img = np.asarray(grey_img)
-    return np_img 
+#     np_img = np.asarray(grey_img)
+#     return np_img 
 
-def predict_with_tflite_data(image_data, model_path):
-    # image = pre_process_img_v3_data(image_data, crop_img_dims)
-    image = image_data
-    image = image / 255.0
-    image = np.expand_dims(image, axis=0)
-    image = np.expand_dims(image, axis=-1)
-    image = image.astype(np.float32)
+# def predict_with_tflite_data(image_data, model_path):
+#     # image = pre_process_img_v3_data(image_data, crop_img_dims)
+#     image = image_data
+#     image = image / 255.0
+#     image = np.expand_dims(image, axis=0)
+#     image = np.expand_dims(image, axis=-1)
+#     image = image.astype(np.float32)
 
-    # Load the model
-    interpreter = tf.lite.Interpreter(model_path=model_path)
-    interpreter.allocate_tensors()
+#     # Load the model
+#     interpreter = tf.lite.Interpreter(model_path=model_path)
+#     interpreter.allocate_tensors()
 
-    # Get the input and output tensors
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
+#     # Get the input and output tensors
+#     input_details = interpreter.get_input_details()
+#     output_details = interpreter.get_output_details()
 
-    # Make the prediction
-    interpreter.set_tensor(input_details[0]['index'], image)
-    interpreter.invoke()
-    prediction = interpreter.get_tensor(output_details[0]['index'])
-    # print(prediction)
-    # Return the prediction
-    prediction_accuracy = max(prediction[0])
-    class_name = prediction_classes[np.argmax(prediction)]
-    return [class_name, prediction_accuracy]
+#     # Make the prediction
+#     interpreter.set_tensor(input_details[0]['index'], image)
+#     interpreter.invoke()
+#     prediction = interpreter.get_tensor(output_details[0]['index'])
+#     # print(prediction)
+#     # Return the prediction
+#     prediction_accuracy = max(prediction[0])
+#     class_name = prediction_classes[np.argmax(prediction)]
+#     return [class_name, prediction_accuracy]
 
-def predict_audio_data(audio_data, sr=20400):
-    # print(len(audio_data))
-    # audio_data_string = [i  for i in audio_data]
-    # with open('rand.txt', 'w') as f:
-    #     f.write(str(audio_data_string))
-    spectrogram_img_data = generate_spectrogram_img_memory(audio_data, sr)
-    x = 0
-    pred_dic = {}
-    for i in range(5):
-        crop_img_dims = [180+x,200,360+x,380]
-        processed_img_data = pre_process_img_v3_data(spectrogram_img_data, crop_img_dims)
-        pred = (predict_with_tflite_data(processed_img_data, ML_MODEL_PATH))
-        if pred[0] not in pred_dic:
-            pred_dic[pred[0]] = 1
-        else:
-            pred_dic[pred[0]] +=1
-        x+=180
-    return pred_dic
+# def predict_audio_data(audio_data, sr=20400):
+#     # print(len(audio_data))
+#     # audio_data_string = [i  for i in audio_data]
+#     # with open('rand.txt', 'w') as f:
+#     #     f.write(str(audio_data_string))
+#     spectrogram_img_data = generate_spectrogram_img_memory(audio_data, sr)
+#     x = 0
+#     pred_dic = {}
+#     for i in range(5):
+#         crop_img_dims = [180+x,200,360+x,380]
+#         processed_img_data = pre_process_img_v3_data(spectrogram_img_data, crop_img_dims)
+#         pred = (predict_with_tflite_data(processed_img_data, ML_MODEL_PATH))
+#         if pred[0] not in pred_dic:
+#             pred_dic[pred[0]] = 1
+#         else:
+#             pred_dic[pred[0]] +=1
+#         x+=180
+#     return pred_dic
+class SpectAudioPrediction:
+    def __init__(self, model_path):
+        self.model_path = model_path
+
+    def generate_spectrogram_img_memory(self, audio_data, sr):
+        y = audio_data
+        D = np.abs(librosa.stft(y)) ** 2
+        S = librosa.feature.melspectrogram(S=D, sr=sr)
+
+        fig, ax = plt.subplots(figsize=(14.5, 6))
+        S_dB = librosa.power_to_db(S, ref=np.max)
+        img = librosa.display.specshow(S_dB, x_axis='time', y_axis='mel', sr=sr, fmax=6000, ax=ax)
+
+        fig.colorbar(img, ax=ax, format='%+2.0f dB')
+        plt.close(fig)
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        img_arr = np.array(Image.open(buf))
+
+        return img_arr
+
+    def pre_process_img_v3_data(self, np_img, dims):
+        left, upper, right, lower = dims[0], dims[1], dims[2], dims[3]
+        img = Image.fromarray(np_img)
+
+        cropped_img = img.crop((left, upper + 50, right, lower + 50))
+
+        grey_img = cropped_img.convert('L')
+
+        grey_img = grey_img.point(lambda p: 255 if p > 165 else p)
+        grey_img = grey_img.point(lambda p: 110 if p < 130 else p)
+
+        np_img = np.asarray(grey_img)
+        return np_img
+
+    def predict_with_tflite_data(self, image_data):
+        image = image_data / 255.0
+        image = np.expand_dims(image, axis=0)
+        image = np.expand_dims(image, axis=-1)
+        image = image.astype(np.float32)
+
+        # Load the model
+        interpreter = tf.lite.Interpreter(model_path=self.model_path)
+        interpreter.allocate_tensors()
+
+        # Get the input and output tensors
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+
+        # Make the prediction
+        interpreter.set_tensor(input_details[0]['index'], image)
+        interpreter.invoke()
+        prediction = interpreter.get_tensor(output_details[0]['index'])
+
+        # Return the prediction
+        prediction_accuracy = max(prediction[0])
+        class_name = prediction_classes[np.argmax(prediction)]
+        return [class_name, prediction_accuracy]
+
+    def predict_audio_data(self, audio_data, sr=20400):
+        spectrogram_img_data = self.generate_spectrogram_img_memory(audio_data, sr)
+        x = 0
+        pred_dic = {}
+        for i in range(5):
+            crop_img_dims = [180 + x, 200, 360 + x, 380]
+            processed_img_data = self.pre_process_img_v3_data(spectrogram_img_data, crop_img_dims)
+            pred = self.predict_with_tflite_data(processed_img_data)
+            if pred[0] not in pred_dic:
+                pred_dic[pred[0]] = 1
+            else:
+                pred_dic[pred[0]] += 1
+            x += 180
+        return pred_dic
 
 class VGGishAudioClassifier:
-    def __init__(self, model_path, classifier_path):
-        self.model = hub.load(model_path = 'https://tfhub.dev/google/vggish/1')
-        self.classifier = xgb.XGBClassifier()
-        self.classifier.load_model(classifier_path)
+    XGB_MODEL_PATH = "models/audio_classification_model.xgb"
+    RF_MODEL_PATH = "models/random_forest_optimized.pkl"
 
-    def extract_audio_features(self, audio_file):
+    def __init__(self, wav_data):
+        self.load_ml_classifier()
+        self.wav_data = wav_data
+
+    def pre_process_audio_data(self):
+        # wav_data_processed = np.mean(self.wav_data, axis=1)
+        wav_data_processed = self.wav_data
+        wav_data_processed = librosa.resample(y=wav_data_processed,orig_sr=22050,target_sr= 16000)
+        return wav_data_processed
+
+    def extract_audio_features(self):
         features = []
         with tf.Graph().as_default(), tf.compat.v1.Session() as sess:
             vggish_slim.define_vggish_slim(training=False)
-            vggish_slim.load_vggish_slim_checkpoint(sess, 'vggish_model.ckpt')
+            vggish_slim.load_vggish_slim_checkpoint(sess, 'vggish/vggish_model.ckpt')
             tf_features_tensor = sess.graph.get_tensor_by_name('vggish/input_features:0')
             tf_embedding_tensor = sess.graph.get_tensor_by_name('vggish/embedding:0')
 
-            wav_data = vggish_input.wavfile_to_examples(audio_file)
+            wav_data = vggish_input.waveform_to_examples(self.pre_process_audio_data(), sample_rate=16000)
             features_batch = sess.run(tf_embedding_tensor, feed_dict={tf_features_tensor: wav_data})
             features.append(features_batch)
 
         return np.vstack(features)
+    
+    def load_ml_classifier(self):
+        # self.xgb_classifier = xgb.XGBClassifier().load_model(self.XGB_MODEL_PATH)
+        self.rf_classifier = joblib.load(self.RF_MODEL_PATH)
 
-    def predict(self, audio_file):
-        features = self.extract_audio_features(audio_file)
-        prediction = self.classifier.predict(features)[0]
-        return prediction
+    def predict(self):
+        features = self.extract_audio_features()
+        # print("features: ", features)
+        prediction = self.rf_classifier.predict(features)[0]
+        return (prediction)
 
 
 """
@@ -222,7 +315,7 @@ app = Flask(__name__)
 def greet():
     return "hello world!"
 
-@app.route('/classify-audio-data/', methods=['POST'])
+@app.route('/classify-audio-data/spectrogram', methods=['POST'])
 def classify_audio_data():
     # Check if the request contains gzipped data
     if request.headers.get('Content-Encoding') == 'gzip':
@@ -233,9 +326,25 @@ def classify_audio_data():
         audio_data = np.array(audio_data_json['audio_data'])
 
     # Perform audio data classification
-    result = predict_audio_data(audio_data, sr=20400)
+    # result = predict_audio_data(audio_data, sr=20400)
+    audio_prediction = SpectAudioPrediction(ML_MODEL_PATH)
+    result = audio_prediction.predict_audio_data(audio_data, sr=20400)
+    print(result)
+    return jsonify(result)
 
-    return (result)
+@app.route('/classify-audio-data/vggish', methods=['POST'])
+def classify_audio_data_vggish():
+    if request.headers.get('Content-Encoding') == 'gzip':
+        gzipped_data = request.get_data()
+        audio_data = np.frombuffer(gzip.decompress(gzipped_data), dtype=np.float32)
+    else:
+        audio_data_json = request.get_json()
+        audio_data = np.array(audio_data_json['audio_data'])
+
+    prediction_model = VGGishAudioClassifier(audio_data)
+    result = prediction_model.predict()
+    print((result))
+    return jsonify(result)
 
 @app.route('/localize-audio-source/tdoa/', methods=['POST'])
 def tdoa():
