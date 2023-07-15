@@ -18,8 +18,8 @@
 import numpy as np
 import resampy
 
-import mel_features
-import vggish_params
+from vggish import mel_features
+from vggish import vggish_params
 
 try:
   import soundfile as sf
