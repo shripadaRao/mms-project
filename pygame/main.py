@@ -30,6 +30,8 @@ AMBIENT_AUDIO_FILEPATH = "pygame/audio_files/10s_ambient.wav"
 
 NUM_OF_TREES = 15
 
+#choose which prediction api
+prediction_api = SPECT_AUDIO_CLASSIFICATION_API
 
 # Utility functions
 def generate_audio_source_coords():
@@ -132,7 +134,7 @@ class SensorDevice:
     async def async_predict_audio_data(self, session, received_audio_data):
         compressed_audio_data = gzip.compress(received_audio_data.tobytes())
         headers = {'Content-Encoding': 'gzip'}
-        async with session.post(SPECT_AUDIO_CLASSIFICATION_API, data=compressed_audio_data,
+        async with session.post(prediction_api, data=compressed_audio_data,
                                 headers=headers) as response:
             result = await response.json()
             return result
@@ -296,6 +298,11 @@ def handle_reset_button(mouse_pos, coords, dims, sensor_list, num_of_trees, audi
         pygame.display.flip()
     return audio_source_coords, devices_coords, rand_tree_coords
 
+import threading
+
+def handle_run_button_in_thread(mouse_pos, coords, dims, sensor_list, is_tdoa):
+    threading.Thread(target=handle_run_button, args=(mouse_pos, coords, dims, sensor_list, is_tdoa)).start()
+
 def handle_run_button(mouse_pos, coords, dims, sensor_list, is_tdoa):
     if coords[0] <= mouse_pos[0] <= coords[0] + dims[0] and coords[1] <= mouse_pos[1] <= coords[1] + dims[1]:
         source_audio_data = ambient_audio_data if menu_isAmbient else sawing_audio_data
@@ -332,9 +339,14 @@ def handle_run_button(mouse_pos, coords, dims, sensor_list, is_tdoa):
             print("actual coords: ", audio_source_coords)            
             print("tdoa prediction: ", tdoa_est)       
         
-        for i, prediction in enumerate(devices_predictions):
-            sensor = sensor_list[i]
-            sensor.is_sawing = True if 'sawing' in prediction else sensor.is_sawing
+        if prediction_api == SPECT_AUDIO_CLASSIFICATION_API:
+            for i, prediction in enumerate(devices_predictions):
+                sensor = sensor_list[i]
+                sensor.is_sawing = True if 'sawing' in prediction else sensor.is_sawing
+        if prediction_api == VGGISH_AUDIO_CLASSIFICATION_API:
+            for i, prediction in enumerate(devices_predictions):
+                sensor = sensor_list[i]
+                sensor.is_sawing = True if prediction == 1 else sensor.is_sawing
 
         return devices_predictions
 
@@ -437,7 +449,7 @@ while running:
             mouse_pos = pygame.mouse.get_pos()
 
             audio_source_coords, devices_coords, rand_tree_coords = handle_reset_button(mouse_pos, RESET_BUTTON_COORDS, RESET_BUTTON_DIMS, [sensor1, sensor2, sensor3, sensor4], NUM_OF_TREES, audio_source_coords, devices_coords, rand_tree_coords)
-            audio_source_predictions = handle_run_button(mouse_pos, RUN_BUTTON_COORDS, RUN_BUTTON_DIMS, [sensor1, sensor2, sensor3, sensor4], is_tdoa)
+            audio_source_predictions = handle_run_button_in_thread(mouse_pos, RUN_BUTTON_COORDS, RUN_BUTTON_DIMS, [sensor1, sensor2, sensor3, sensor4], is_tdoa)
             menu_isVisible, menu_isSawing, menu_isAmbient, is_tdoa = handle_dropdown_button(mouse_pos, DROP_BUTTON_COORDS, DROP_DOWN_BUTTON_DIMS, menu_isVisible, menu_isSawing, menu_isAmbient, is_tdoa)
 
     screen.blit(background, (0, 0))
