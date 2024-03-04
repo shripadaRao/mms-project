@@ -1,8 +1,6 @@
 /venv/
 /dataset/
 app/
-vggish/*
-yt_prediction/data_extraction/
-yt_prediction/training/
+vggish
 legacy/
 __pycache__
