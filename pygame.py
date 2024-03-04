@@ -4,7 +4,6 @@ import math
 import requests
 import json
 import librosa
-import numpy as np
 import asyncio
 import aiohttp
 import time
@@ -20,13 +19,13 @@ VGGISH_AUDIO_CLASSIFICATION_API = 'http://127.0.0.1:5000/classify-audio-data/vgg
 
 TDOA_ESTIMATION_API = "http://127.0.0.1:5000/localize-audio-source/tdoa/"
 
-SENSOR_SPRITE_PATH = "pygame/assets/sensor-sprit.png"
-SAWING_SPRITE_PATH = "pygame/assets/saw-resized-sprite.png"
-AMBIENT_SPRITE_PATH = 'pygame/assets/Ambient-sound-sprite.png'
+SENSOR_SPRITE_PATH = "pygame_utils/assets/sensor-sprit.png"
+SAWING_SPRITE_PATH = "pygame_utils/assets/saw-resized-sprite.png"
+AMBIENT_SPRITE_PATH = 'pygame_utils/assets/Ambient-sound-sprite.png'
 
-PYGAME_SAWING_AUDIO_FILEPATH = "pygame/audio_files/background_sawing.wav"
-SAWING_AUDIO_FILEPATH = "pygame/audio_files/merged_sawing_ambient.wav"
-AMBIENT_AUDIO_FILEPATH = "pygame/audio_files/10s_ambient.wav"
+PYGAME_SAWING_AUDIO_FILEPATH = "pygame_utils/audio_files/background_sawing.wav"
+SAWING_AUDIO_FILEPATH = "pygame_utils/audio_files/merged_sawing_ambient.wav"
+AMBIENT_AUDIO_FILEPATH = "pygame_utils/audio_files/10s_ambient.wav"
 
 NUM_OF_TREES = 15
 
@@ -209,8 +208,8 @@ background = pygame.Surface(WINDOW_SIZE)
 background.fill((0,0,0))
 
 #render background
-tile_image = pygame.image.load('pygame/assets/grass-resized-sprit.png')
-tree_image = pygame.image.load('pygame/assets/tree-resized-sprit.png')
+tile_image = pygame.image.load('pygame_utils/assets/grass-resized-sprit.png')
+tree_image = pygame.image.load('pygame_utils/assets/tree-resized-sprit.png')
 
 num_tiles_x = WINDOW_SIZE[0] // tile_image.get_width() + 1
 num_tiles_y = WINDOW_SIZE[1] // tile_image.get_height() + 1
